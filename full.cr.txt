@@ -1,0 +1,217 @@
+====================
+FILE: Client\Program.cs
+
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
+
+namespace Client
+{
+    internal class Program
+    {
+        private static string? jsonMsg;
+        private static bool exchangeOn = true;
+        static void Main(string[] args)
+        {
+            Console.ReadLine();
+            IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9013);
+            Socket clientSocket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                clientSocket.Connect(endPoint);
+                Console.WriteLine("######################################");
+                Console.WriteLine("Conntected to the server.");
+                Console.WriteLine("Socket connected to -> {0} ", clientSocket.RemoteEndPoint!.ToString());
+                Console.WriteLine("######################################\n");
+                byte[] messageReceived = new byte[1024];
+                int byteReceived = clientSocket.Receive(messageReceived);
+                Console.WriteLine("New message from Server: \n\n{0}",
+                Encoding.ASCII.GetString(messageReceived,
+                                           0, byteReceived));
+                while (exchangeOn)
+                {
+                    Console.Write("\nEnter a new command: ");
+                    string userInput = Console.ReadLine()!;
+                    if (!string.IsNullOrEmpty(userInput))
+                    {
+                        Console.Clear();
+                        byte[] messageSent = Encoding.ASCII.GetBytes(userInput);
+                        int byteSent = clientSocket.Send(messageSent);
+                        byteReceived = clientSocket.Receive(messageReceived);
+                        string newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
+                        jsonMsg = JsonSerializer.Deserialize<string>(newMessage);
+                        Console.WriteLine("New message from Server: \n\n{0}", jsonMsg);
+                        if (jsonMsg == "stop")
+                            exchangeOn = false;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Please enter a valid command");
+                    }
+                }
+                clientSocket.Shutdown(SocketShutdown.Both);
+                clientSocket.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Can't establish connection to the server: " + ex.ToString());
+            }
+        }
+    }
+}
+
+====================
+FILE: Server\Program.cs
+
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Server
+{
+    internal class Program
+    {
+        static void Main(string[] args)
+        {
+            Server server = new Server();
+            server.Start();
+        }
+    }
+}
+
+====================
+FILE: Server\Server.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+namespace Server
+{
+    public class Server
+    {
+        private static IPAddress IpAddress = IPAddress.Parse("127.0.0.1");
+        private const int Port = 9013;
+        private static string ServerVersion { get; set; } = "0.1.0";
+        private static DateTime ServerCreationDate { get; set; }
+        private static string? jsonMsg;
+        private Socket clientSocket;
+        private IPEndPoint endpoint;
+        private Socket serverSocket;
+        private static bool communicationOn = true;
+        private static bool dataExchange = true;
+        private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
+                                            "help - list of available commands\ninfo - server's version&creation date\n" +
+                                            "stop - stops server and the client\n";
+        public Server()
+        {
+            endpoint = new IPEndPoint(IpAddress, Port);
+            serverSocket = new Socket(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            ServerCreationDate = DateTime.Now;
+        }
+        public void Start()
+        {
+            Console.ReadLine();
+            try
+            {
+                serverSocket.Bind(endpoint);
+
+                serverSocket.Listen(1);
+                while (communicationOn)
+                {
+                    Console.WriteLine("Server is waiting for connection on localhost:9013...");
+                    clientSocket = serverSocket.Accept();
+                    Console.WriteLine("Client connected.");
+                    var messageSent = Encoding.ASCII.GetBytes(helpMessage);
+                    int bytesSent = clientSocket.Send(messageSent);
+                    var buffer = new byte[1024];
+                    while (dataExchange)
+                    {
+                        string data = null;
+                        int numByte = clientSocket.Receive(buffer);
+                        data += Encoding.ASCII.GetString(buffer, 0, numByte);
+                        Console.WriteLine("Command received -> {0}", data); ;
+                        switch (data.ToLower())
+                        {
+                            case "help":
+                                {
+                                    HelpCommand();
+                                    break;
+                                }
+                            case "info":
+                                {
+                                    InfoCommand();
+                                    break;
+                                }
+                            case "uptime":
+                                {
+                                    UpTimeCommand();
+                                    break;
+                                }
+                            case "stop":
+                                {
+                                    StopCommand();
+                                    break;
+                                }
+                            default:
+                                {
+                                    jsonMsg = JsonSerializer.Serialize("Please enter a valid command!\n\n" + helpMessage);
+                                    clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                                    break;
+                                }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
+            finally
+            {
+                serverSocket.Close();
+            }
+        }
+        private void UpTimeCommand()
+        {
+            jsonMsg = JsonSerializer.Serialize($"Server's lifetime [hh:mm:ss]: {(DateTime.Now.TimeOfDay - ServerCreationDate.TimeOfDay).ToString(@"hh\:mm\:ss")}");
+            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+        }
+        private void StopCommand()
+        {
+            try
+            {
+                jsonMsg = JsonSerializer.Serialize("stop");
+                clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                communicationOn = false;
+                dataExchange = false;
+            }
+        }
+        private void InfoCommand()
+        {
+            jsonMsg = JsonSerializer.Serialize($"Server's creation date&time: {ServerCreationDate}, server version: {ServerVersion}");
+            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+        }
+        private void HelpCommand()
+        {
+            jsonMsg = JsonSerializer.Serialize(helpMessage);
+            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+        }
+    }
+}
