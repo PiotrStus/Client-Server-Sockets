@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using Shared.Classes;
+using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -14,6 +15,8 @@ namespace Client
         {
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9013);
             Socket clientSocket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            RegularUser userTest = new RegularUser("paweł", "gaweł");
+            userTest.RegisterUser();
             try
             {
                 clientSocket.Connect(endPoint);
