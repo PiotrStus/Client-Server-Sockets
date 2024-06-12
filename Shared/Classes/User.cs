@@ -13,8 +13,8 @@ namespace Shared.Classes
             Password = password;
             Login = login;
         }
-        private string Login { get; set; }
-        private string Password { get; set; }
+        public string Login { get; protected set; }
+        public string Password { get; protected set; }
         public virtual void RegisterUser()
         {
         }

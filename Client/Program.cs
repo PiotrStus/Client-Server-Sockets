@@ -1,4 +1,5 @@
 ﻿using Shared.Classes;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -29,6 +30,10 @@ namespace Client
                 Console.WriteLine("New message from Server: \n\n{0}",
                 Encoding.ASCII.GetString(messageReceived,
                                            0, byteReceived));
+               
+                
+                
+                
                 while (exchangeOn)
                 {
                     Console.Write("\nEnter a new command: ");
@@ -41,15 +46,37 @@ namespace Client
                         byteReceived = clientSocket.Receive(messageReceived);
                         string newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
                         jsonMsg = JsonSerializer.Deserialize<string>(newMessage);
-                        Console.WriteLine("New message from Server: \n\n{0}", jsonMsg);
+                        if (jsonMsg != "register")
+                        {
+                            Console.WriteLine("New message from Server: \n\n{0}", jsonMsg);
+                        }
                         if (jsonMsg == "stop")
                             exchangeOn = false;
+                        else if (jsonMsg == "register")
+                        {
+                            Console.WriteLine("Please type your login: ");
+                            userInput = Console.ReadLine()!;
+                            messageSent = Encoding.ASCII.GetBytes(userInput);
+                            jsonMsg = JsonSerializer.Serialize(userInput);
+                            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                            Array.Clear(messageSent, 0, messageSent.Length);
+                            Console.Clear();
+                            Console.WriteLine("Please type your password: ");
+                            userInput = Console.ReadLine()!;
+                            jsonMsg = JsonSerializer.Serialize(userInput);
+                            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                        }
                     }
                     else
                     {
                         Console.WriteLine("Please enter a valid command");
                     }
                 }
+
+
+
+
+
                 clientSocket.Shutdown(SocketShutdown.Both);
                 clientSocket.Close();
             }

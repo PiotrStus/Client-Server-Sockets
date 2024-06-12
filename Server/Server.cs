@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Shared.Classes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -23,7 +24,8 @@ namespace Server
         private static bool dataExchange = true;
         private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
                                             "help - list of available commands\ninfo - server's version&creation date\n" +
-                                            "stop - stops server and the client\n";
+                                            "register - register a new user\n" + "stop - stops server and the client\n";
+        private List<User> users = new List<User>();
         public Server()
         {
             endpoint = new IPEndPoint(IpAddress, Port);
@@ -45,9 +47,12 @@ namespace Server
                     var messageSent = Encoding.ASCII.GetBytes(helpMessage);
                     int bytesSent = clientSocket.Send(messageSent);
                     var buffer = new byte[1024];
+
+
+
                     while (dataExchange)
                     {
-                        string data = null;
+                        string data = null!;
                         int numByte = clientSocket.Receive(buffer);
                         data += Encoding.ASCII.GetString(buffer, 0, numByte);
                         Console.WriteLine("Command received -> {0}", data); ;
@@ -71,6 +76,11 @@ namespace Server
                             case "stop":
                                 {
                                     StopCommand();
+                                    break;
+                                }
+                            case "register":
+                                {
+                                    RegisterCommand();
                                     break;
                                 }
                             default:
@@ -124,6 +134,35 @@ namespace Server
         {
             jsonMsg = JsonSerializer.Serialize(helpMessage);
             clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+        }
+        private void RegisterCommand()
+        {
+            jsonMsg = JsonSerializer.Serialize("register");
+            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+            string loginData = null!;
+            var loginBuffer = new byte[1024];
+            int loginBytesReceived = clientSocket.Receive(loginBuffer);
+            jsonMsg = Encoding.ASCII.GetString(loginBuffer, 0, loginBytesReceived);
+            loginData = JsonSerializer.Deserialize<string>(jsonMsg)!;
+            Console.WriteLine("login: " + loginData);
+            string passwordData = null!;
+            var passwordBuffer = new byte[1024];
+            int passwordBytesReceived = clientSocket.Receive(passwordBuffer);
+            jsonMsg = Encoding.ASCII.GetString(passwordBuffer, 0, passwordBytesReceived);
+            passwordData = JsonSerializer.Deserialize<string>(jsonMsg)!;
+            Console.WriteLine("password: " + passwordData);
+
+            Console.WriteLine($"User: {loginData}, password: {passwordData} created.");
+
+            users.Add(new RegularUser(loginData, passwordData));
+            string jsonString = JsonSerializer.Serialize(users);
+            Console.WriteLine(jsonString);
+            var FilesDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
+
+            using (StreamWriter writer = new StreamWriter(FilesDirectory))
+            {
+                writer.WriteLine(jsonString);
+            }
         }
     }
 }
