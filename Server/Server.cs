@@ -123,6 +123,12 @@ namespace Server
                                     await DeleteCommand();
                                     break;
                                 }
+                            case "message":
+                                {
+                                    await MessageCommand();
+                                    break;
+                                }
+
                             default:
                                 {
                                     jsonMsg = JsonConvert.SerializeObject("Please enter a valid command!\n\n" + helpMessage);
@@ -204,6 +210,7 @@ namespace Server
             if (currentUser != null)
             {
                 helpMessage.Commands.Add("logout - user logout");
+                helpMessage.Commands.Add("message - send a message");
             }
             else
                 helpMessage.Commands.Add("login - login an user");
@@ -385,6 +392,10 @@ namespace Server
             }
             jsonMsg = JsonConvert.SerializeObject(deleteRequest);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+        }
+        private async Task MessageCommand()
+        {
+
         }
         private bool IsAdmin()
         {

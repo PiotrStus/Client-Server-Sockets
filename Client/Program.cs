@@ -174,6 +174,10 @@ namespace Client
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
                     break;
+                case "message":
+
+                    break;
+
                 case "stop":
                     clientSocket.Close(); 
                     exchangeOn = false;
