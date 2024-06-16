@@ -176,7 +176,6 @@ namespace Client
                     exchangeOn = false;
                     break;
                 case "users":
-                    Console.WriteLine(newMessage);
                     var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");

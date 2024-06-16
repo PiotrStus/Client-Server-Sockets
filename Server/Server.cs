@@ -322,7 +322,7 @@ namespace Server
                 if (user.Login == loginData.Command && user.Password == passwordData.Command)
                 {
                     currentUser = user;
-                    if (currentUser.Type == Constants.UserTypes.Admin) 
+                    if (currentUser.Type == Constants.UserTypes.Admin)
                         isAdmin = true;
                     userFound = true;
                 }
@@ -332,9 +332,9 @@ namespace Server
             else
                 request = new Request { Command = $"{loginData.Command} logged in" };
             jsonMsg = JsonConvert.SerializeObject(request);
-            await clientSocket.SendAsync (Encoding.ASCII.GetBytes(jsonMsg));
+            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
         }
-        private async Task LogoutCommand() 
+        private async Task LogoutCommand()
         {
             var response = new Request { Command = "No user is currently logged in" };
             Console.WriteLine("currentUser: " + currentUser);
@@ -343,7 +343,7 @@ namespace Server
                 response = new Request { Command = $"User - {currentUser.Login} logout successful" };
                 currentUser = null;
             }
-            var jsonMsg = JsonConvert.SerializeObject(response); 
+            var jsonMsg = JsonConvert.SerializeObject(response);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
         }
 
@@ -358,9 +358,8 @@ namespace Server
             jsonMsg = Encoding.ASCII.GetString(buffer, 0, deleteUser);
             var userTwoDelete = JsonConvert.DeserializeObject<Request>(jsonMsg);
             Console.WriteLine(userTwoDelete.Command);
-            Console.ReadKey();
             bool userFound = false;
-            foreach (var user in users) 
+            foreach (var user in users)
             {
                 Console.WriteLine(user.Login + " vs " + userTwoDelete.Command);
                 if (user.Login == userTwoDelete.Command)
@@ -374,19 +373,19 @@ namespace Server
                     userFound = true;
                     break;
                 }
-                if (userFound)
-                {
-                    deleteRequest = new Request { Command = "Can't find the user" };
-                }
-                else
-                {
-                    deleteRequest = new Request { Command = "User deleted" };
-                }
+            }
+            if (userFound)
+            {
+                deleteRequest = new Request { Command = "User deleted" };
+            }
+            else
+            {
+                deleteRequest = new Request { Command = "Can't find the user" };
             }
             jsonMsg = JsonConvert.SerializeObject(deleteRequest);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
         }
-        private bool IsAdmin() 
+        private bool IsAdmin()
         {
             return currentUser != null && currentUser.Type == Constants.UserTypes.Admin;
         }
