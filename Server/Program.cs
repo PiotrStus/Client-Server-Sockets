@@ -8,10 +8,10 @@ namespace Server
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Server server = new Server();
-            server.Start();
+            await server.Start();
         }
     }
 }
