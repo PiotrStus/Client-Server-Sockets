@@ -64,8 +64,9 @@ namespace Server
                     Console.WriteLine("Server is waiting for connection on localhost:9013...");
                     clientSocket = await serverSocket.AcceptAsync();
                     Console.WriteLine("Client connected.");
-                    var messageSent = Encoding.ASCII.GetBytes(helpMessage);
-                    int bytesSent = await clientSocket.SendAsync(messageSent);
+                    var messageSent = JsonConvert.SerializeObject(helpMessage);
+                    //Console.WriteLine(messageSent);
+                    int bytesSent = await clientSocket.SendAsync(Encoding.ASCII.GetBytes(messageSent));
                     var buffer = new byte[1024];
                     while (dataExchange)
                     {

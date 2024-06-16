@@ -7,6 +7,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Shared.Responses;
 using Shared.Requests;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Client
 {
@@ -27,9 +28,11 @@ namespace Client
                 Console.WriteLine("######################################\n");
                 byte[] messageReceived = new byte[1024];
                 int byteReceived = clientSocket.Receive(messageReceived);
-                Console.WriteLine("New message from Server: \n\n{0}",
-                Encoding.ASCII.GetString(messageReceived,
-                                           0, byteReceived));
+
+                var data = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
+                var request1 = JsonConvert.DeserializeObject<string>(data);
+
+                Console.WriteLine("New message from Server: \n\n{0}", request1);
                 while (exchangeOn)
                 {
                     Console.Write("\nEnter a new command: ");
