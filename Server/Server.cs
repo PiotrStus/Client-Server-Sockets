@@ -30,11 +30,12 @@ namespace Server
         private static bool dataExchange = true;
         private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
                                             "help - list of available commands\ninfo - server's version&creation date\n" +
-                                            "register - register a new user\n" + "login - user login\n" + "logut - user logout\n" +
-                                            "users - list of registered users\n" + "stop - stops server and the client\n";
+                                            "register - register a new user\n" + "login - user login\n" +
+                                            "stop - stops server and the client\n";
 
         AdminUser adminUser = new AdminUser("admin", "admin123");
-        private User currentUser;
+        private User? currentUser;
+        bool isAdmin;
         private List<User> users = new List<User>();
         public Server()
         {
@@ -52,13 +53,11 @@ namespace Server
                 writer.WriteLine(admin);
             }
         }
-
         public async Task Start()
         {
             try
             {
                 serverSocket.Bind(endpoint);
-
                 serverSocket.Listen(1);
                 while (communicationOn)
                 {
@@ -68,19 +67,14 @@ namespace Server
                     var messageSent = Encoding.ASCII.GetBytes(helpMessage);
                     int bytesSent = await clientSocket.SendAsync(messageSent);
                     var buffer = new byte[1024];
-
-
-
                     while (dataExchange)
                     {
                         string data = null!;
                         int numByte = clientSocket.Receive(buffer);
                         data += Encoding.ASCII.GetString(buffer, 0, numByte);
                         var request = JsonConvert.DeserializeObject<Request>(data);
-
                         Console.WriteLine("Command received -> {0}", data);
                         Console.WriteLine(request.Command.ToLower());
-                        //Console.ReadKey();
                         switch (request.Command.ToLower())
                         {
                             case "help":
@@ -197,13 +191,20 @@ namespace Server
                     "info - server's version&creation date",
                     "uptime - server's lifetime",
                     "register - register a new user",
-                    "login - login an user",
-                    "logut - user logout",
-                    "users - list of registered users",
-                    "stop - stops server and the client",
+                    "stop - stops server and the client"
                 }
             };
 
+            if (currentUser != null)
+            {
+                helpMessage.Commands.Add("logout - user logout");
+            }
+            else
+                helpMessage.Commands.Add("login - login an user");
+            if (isAdmin)
+            {
+                helpMessage.Commands.Add("users - list of registered users");
+            }
             jsonMsg = JsonConvert.SerializeObject(helpMessage);
             clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
         }
@@ -238,11 +239,21 @@ namespace Server
             jsonMsg = JsonConvert.SerializeObject(request);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
         }
-
         private async Task UsersCommand()
         {
             using (StreamReader reader = new StreamReader(filesDirectory))
             {
+                if (!isAdmin)
+                {
+                    var response = new UsersResponse
+                    {
+                        Message = "Access denied. Only admins can list users.",
+                        Users = new List<string>()
+                    };
+                    jsonMsg = JsonConvert.SerializeObject(response);
+                    await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+                    return;
+                }
                 var jsonUsers = await reader.ReadToEndAsync();
                 Console.WriteLine(jsonUsers);
                 var settings = new JsonSerializerSettings
@@ -276,7 +287,6 @@ namespace Server
                 clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
             }
         }
-
         private async Task LoginCommand()
         {
             string loginRequest = "Please type your login:";
@@ -306,6 +316,8 @@ namespace Server
                 if (user.Login == loginData.Command && user.Password == passwordData.Command)
                 {
                     currentUser = user;
+                    if (currentUser.Type == Constants.UserTypes.Admin) 
+                        isAdmin = true;
                     userFound = true;
                 }
             }
@@ -316,19 +328,21 @@ namespace Server
             jsonMsg = JsonConvert.SerializeObject(request);
             await clientSocket.SendAsync (Encoding.ASCII.GetBytes(jsonMsg));
         }
-
         private async Task LogoutCommand() 
         {
             var response = new Request { Command = "No user is currently logged in" };
             Console.WriteLine("currentUser: " + currentUser);
             if (currentUser != null)
             {
-                Console.WriteLine("dupa");
+                response = new Request { Command = $"User - {currentUser.Login} logout successful" };
                 currentUser = null;
-                response = new Request { Command = "Logout successful" };
             }
             var jsonMsg = JsonConvert.SerializeObject(response); 
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+        }
+        private bool IsAdmin() 
+        {
+            return currentUser != null && currentUser.Type == Constants.UserTypes.Admin;
         }
     }
 }

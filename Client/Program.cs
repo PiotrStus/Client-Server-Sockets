@@ -124,7 +124,7 @@ namespace Client
                     var logoutResponse = JsonConvert.DeserializeObject<Request>(newMessage);
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                " + logoutResponse.Command);
+                    Console.WriteLine("             " + logoutResponse.Command);
 
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");

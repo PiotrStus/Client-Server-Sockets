@@ -16,8 +16,8 @@ namespace Shared.Classes
         }
 
         public abstract Constants.UserTypes Type { get; }
-        public string Login { get;  set; }
-        public string Password { get;  set; }
+        public string Login { get; private set; }
+        public string Password { get; private set; }
         public virtual void RegisterUser()
         {
         }
