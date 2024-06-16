@@ -129,6 +129,25 @@ namespace Client
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
                     break;
+                case "delete":
+                    //odbior z serwera
+                    var deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.WriteLine(deleteResponse.Command);
+
+                    // pobranie danych i wysylka do serwera
+                    userInput = Console.ReadLine()!;
+                    var userTwoDelete = new Request { Command = userInput };
+                    jsonMsg = JsonConvert.SerializeObject(userTwoDelete);
+                    clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+
+                    // odbior potwierdzenia/odmowy z serwera
+                    messageReceived = new byte[1024];
+                    byteReceived = clientSocket.Receive(messageReceived);
+                    newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
+                    deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.Clear();
+                    Console.WriteLine(deleteResponse.Command);
+                    break;
                 case "uptime":
                     var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
                     Console.WriteLine("\n######################################################");
@@ -157,6 +176,7 @@ namespace Client
                     exchangeOn = false;
                     break;
                 case "users":
+                    Console.WriteLine(newMessage);
                     var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");

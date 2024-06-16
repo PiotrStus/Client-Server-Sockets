@@ -117,6 +117,11 @@ namespace Server
                                     await UsersCommand();
                                     break;
                                 }
+                            case "delete":
+                                {
+                                    await DeleteCommand();
+                                    break;
+                                }
                             default:
                                 {
                                     jsonMsg = JsonConvert.SerializeObject("Please enter a valid command!\n\n" + helpMessage);
@@ -204,6 +209,7 @@ namespace Server
             if (isAdmin)
             {
                 helpMessage.Commands.Add("users - list of registered users");
+                helpMessage.Commands.Add("delete - delete an user");
             }
             jsonMsg = JsonConvert.SerializeObject(helpMessage);
             clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
@@ -338,6 +344,46 @@ namespace Server
                 currentUser = null;
             }
             var jsonMsg = JsonConvert.SerializeObject(response); 
+            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+        }
+
+        private async Task DeleteCommand()
+        {
+            var deleteRequest = new Request { Command = "Which user do you want to delete? " };
+            var buffer = new byte[1024];
+            var jsonMsg = JsonConvert.SerializeObject(deleteRequest);
+            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+
+            int deleteUser = await clientSocket.ReceiveAsync(buffer);
+            jsonMsg = Encoding.ASCII.GetString(buffer, 0, deleteUser);
+            var userTwoDelete = JsonConvert.DeserializeObject<Request>(jsonMsg);
+            Console.WriteLine(userTwoDelete.Command);
+            Console.ReadKey();
+            bool userFound = false;
+            foreach (var user in users) 
+            {
+                Console.WriteLine(user.Login + " vs " + userTwoDelete.Command);
+                if (user.Login == userTwoDelete.Command)
+                {
+                    users.Remove(user);
+                    string jsonUsers = JsonConvert.SerializeObject(users);
+                    using (StreamWriter writer = new StreamWriter(filesDirectory))
+                    {
+                        writer.WriteLine(jsonUsers);
+                    }
+                    userFound = true;
+                    break;
+                }
+                if (userFound)
+                {
+                    deleteRequest = new Request { Command = "Can't find the user" };
+                }
+                else
+                {
+                    deleteRequest = new Request { Command = "User deleted" };
+                }
+            }
+            jsonMsg = JsonConvert.SerializeObject(deleteRequest);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
         }
         private bool IsAdmin() 
