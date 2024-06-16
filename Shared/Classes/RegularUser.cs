@@ -4,16 +4,22 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Shared.Interfaces;
+using Newtonsoft.Json;
 
 namespace Shared.Classes
 {
     public class RegularUser : User, IFileReader, IFileWriter
     {
+        [JsonIgnore]
         public string FilesDirectory { get; private set; }
+        public override Constants.UserTypes Type 
+        {
+            get { return Constants.UserTypes.RegularUser; }
+        }
 
         public RegularUser(string username, string password) : base(username, password)
         {
-            GetFileDirectory();
+           //GetFileDirectory();
         }
 
         public void RegisterUser(string username, string password) 

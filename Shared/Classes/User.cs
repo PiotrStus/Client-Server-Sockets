@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Shared.Classes
@@ -13,8 +14,10 @@ namespace Shared.Classes
             Password = password;
             Login = login;
         }
-        public string Login { get; protected set; }
-        public string Password { get; protected set; }
+
+        public abstract Constants.UserTypes Type { get; }
+        public string Login { get;  set; }
+        public string Password { get;  set; }
         public virtual void RegisterUser()
         {
         }

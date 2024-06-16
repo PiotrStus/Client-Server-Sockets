@@ -4,7 +4,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json;
+using Shared.Responses;
+using Shared.Requests;
 
 namespace Client
 {
@@ -16,8 +18,6 @@ namespace Client
         {
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9013);
             Socket clientSocket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            RegularUser userTest = new RegularUser("paweł", "gaweł");
-            userTest.RegisterUser();
             try
             {
                 clientSocket.Connect(endPoint);
@@ -25,64 +25,137 @@ namespace Client
                 Console.WriteLine("Conntected to the server.");
                 Console.WriteLine("Socket connected to -> {0} ", clientSocket.RemoteEndPoint!.ToString());
                 Console.WriteLine("######################################\n");
+
+
+
                 byte[] messageReceived = new byte[1024];
                 int byteReceived = clientSocket.Receive(messageReceived);
                 Console.WriteLine("New message from Server: \n\n{0}",
                 Encoding.ASCII.GetString(messageReceived,
                                            0, byteReceived));
-               
-                
-                
-                
+
+
+
+
                 while (exchangeOn)
                 {
                     Console.Write("\nEnter a new command: ");
-                    string userInput = Console.ReadLine()!;
-                    if (!string.IsNullOrEmpty(userInput))
+                    string command = Console.ReadLine()!;
+                    if (!string.IsNullOrEmpty(command))
                     {
                         Console.Clear();
-                        byte[] messageSent = Encoding.ASCII.GetBytes(userInput);
+                        var request = new Request { Command = command };
+                        string jsonRequest = JsonConvert.SerializeObject(request);
+                        byte[] messageSent = Encoding.ASCII.GetBytes(jsonRequest);
                         int byteSent = clientSocket.Send(messageSent);
                         byteReceived = clientSocket.Receive(messageReceived);
                         string newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
-                        jsonMsg = JsonSerializer.Deserialize<string>(newMessage);
-                        if (jsonMsg != "register")
-                        {
-                            Console.WriteLine("New message from Server: \n\n{0}", jsonMsg);
-                        }
-                        if (jsonMsg == "stop")
-                            exchangeOn = false;
-                        else if (jsonMsg == "register")
-                        {
-                            Console.WriteLine("Please type your login: ");
-                            userInput = Console.ReadLine()!;
-                            messageSent = Encoding.ASCII.GetBytes(userInput);
-                            jsonMsg = JsonSerializer.Serialize(userInput);
-                            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
-                            Array.Clear(messageSent, 0, messageSent.Length);
-                            Console.Clear();
-                            Console.WriteLine("Please type your password: ");
-                            userInput = Console.ReadLine()!;
-                            jsonMsg = JsonSerializer.Serialize(userInput);
-                            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
-                        }
+                        HandleResponse(newMessage, command, clientSocket);
                     }
                     else
                     {
+                        Console.Clear();
                         Console.WriteLine("Please enter a valid command");
                     }
                 }
-
-
-
-
-
                 clientSocket.Shutdown(SocketShutdown.Both);
                 clientSocket.Close();
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Can't establish connection to the server: " + ex.ToString());
+            }
+        }
+
+        static void HandleResponse(string newMessage, string command, Socket clientSocket)
+        {
+            switch (command)
+            {
+                case "info":
+                    var infoResponse = JsonConvert.DeserializeObject<InfoResponse>(newMessage);
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    Console.WriteLine("                 " + infoResponse.Message);
+                    Console.WriteLine("\n######################################################\n");
+                    Console.WriteLine($"Server's creation date&time: {infoResponse.ServerCreated}");
+                    Console.WriteLine($"Server's version: {infoResponse.ServerVersion}");
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    break;
+                case "register":
+                    var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.WriteLine(loginResponse.Command);
+
+ 
+                    string userInput = Console.ReadLine()!;
+                    var loginRequest = new Request { Command = userInput };
+                    var jsonMsg = JsonConvert.SerializeObject(loginRequest);
+                    clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+
+
+                    var messageReceived = new byte[1024];
+                    int byteReceived = clientSocket.Receive(messageReceived);
+                    newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
+                    var passwordResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.Clear();
+                    Console.WriteLine(passwordResponse.Command);
+
+                    userInput = Console.ReadLine()!;
+                    var passwordRequest = new Request { Command = userInput };
+                    jsonMsg = JsonConvert.SerializeObject(passwordRequest);
+                    clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                    byteReceived = clientSocket.Receive(messageReceived);
+                    newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
+                    var userCreated = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.Clear();
+                    Console.WriteLine(userCreated.Command);
+                    break;
+                case "uptime":
+                    var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    Console.WriteLine("              " + uptimeResponse.Message);
+                    Console.WriteLine("\n######################################################\n");
+
+                    Console.WriteLine($"                        {uptimeResponse.UpTime}");
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    break;
+                case "help":
+                    var helpResponse = JsonConvert.DeserializeObject<HelpResponse>(newMessage);
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    Console.WriteLine("                  " + helpResponse.Message);
+                    Console.WriteLine("\n######################################################\n");
+
+                    foreach (var availableCommand in helpResponse.Commands)
+                    {
+                    Console.WriteLine($"          {availableCommand}");
+                    }
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    break;
+                case "stop":
+                    exchangeOn = false;
+                    clientSocket.Close();
+                    break;
+                case "users":
+                    var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    Console.WriteLine("                  " + usersResponse.Message);
+                    Console.WriteLine("\n######################################################\n");
+
+                    foreach (var user in usersResponse.Users)
+                    {
+                        Console.WriteLine($"{user} ");
+                    }
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    break;
+                default:
+                    Console.WriteLine("Unknown command. Type help for list of avaiable commands");
+                    break;
             }
         }
     }
