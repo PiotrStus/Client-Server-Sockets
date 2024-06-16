@@ -20,7 +20,7 @@ namespace Server
         private string filesDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
         private static IPAddress IpAddress = IPAddress.Parse("127.0.0.1");
         private const int Port = 9013;
-        private static string ServerVersion { get; set; } = "0.1.0";
+        private static string ServerVersion { get; set; } = "0.1.1";
         private static DateTime ServerCreationDate { get; set; }
         private static string? jsonMsg;
         private Socket clientSocket;
@@ -30,10 +30,10 @@ namespace Server
         private static bool dataExchange = true;
         private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
                                             "help - list of available commands\ninfo - server's version&creation date\n" +
-                                            "register - register a new user\n" + "users - list of registered users\n" + "stop - stops server and the client\n";
+                                            "register - register a new user\n" + "login - login an user " + "users - list of registered users\n" + "stop - stops server and the client\n";
 
         AdminUser adminUser = new AdminUser("admin", "admin123");
-        User currentUser;
+        private User currentUser;
         private List<User> users = new List<User>();
         public Server()
         {
@@ -105,6 +105,11 @@ namespace Server
                             case "register":
                                 {
                                     await RegisterCommand();
+                                    break;
+                                }
+                            case "login":
+                                {
+                                    await LoginCommand();
                                     break;
                                 }
                             case "users":
@@ -186,6 +191,7 @@ namespace Server
                     "info - server's version&creation date",
                     "uptime - server's lifetime",
                     "register - register a new user",
+                    "login - login an user",
                     "users - list of registered users",
                     "stop - stops server and the client",
                 }
@@ -266,5 +272,8 @@ namespace Server
                 clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
             }
         }
+
+        private async Task LoginCommand()
+        { }
     }
 }
