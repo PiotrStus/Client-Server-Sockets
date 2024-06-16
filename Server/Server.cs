@@ -30,7 +30,8 @@ namespace Server
         private static bool dataExchange = true;
         private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
                                             "help - list of available commands\ninfo - server's version&creation date\n" +
-                                            "register - register a new user\n" + "login - login an user " + "users - list of registered users\n" + "stop - stops server and the client\n";
+                                            "register - register a new user\n" + "login - user login\n" + "logut - user logout\n" +
+                                            "users - list of registered users\n" + "stop - stops server and the client\n";
 
         AdminUser adminUser = new AdminUser("admin", "admin123");
         private User currentUser;
@@ -76,7 +77,7 @@ namespace Server
                         int numByte = clientSocket.Receive(buffer);
                         data += Encoding.ASCII.GetString(buffer, 0, numByte);
                         var request = JsonConvert.DeserializeObject<Request>(data);
-                        
+
                         Console.WriteLine("Command received -> {0}", data);
                         Console.WriteLine(request.Command.ToLower());
                         //Console.ReadKey();
@@ -110,6 +111,11 @@ namespace Server
                             case "login":
                                 {
                                     await LoginCommand();
+                                    break;
+                                }
+                            case "logout":
+                                {
+                                    await LogoutCommand();
                                     break;
                                 }
                             case "users":
@@ -192,6 +198,7 @@ namespace Server
                     "uptime - server's lifetime",
                     "register - register a new user",
                     "login - login an user",
+                    "logut - user logout",
                     "users - list of registered users",
                     "stop - stops server and the client",
                 }
@@ -205,20 +212,16 @@ namespace Server
             string loginRequest = "Please type your login:";
             string passwordRequest = "Please type your password:";
             var buffer = new byte[1024];
-
             var request = new Request { Command = loginRequest };
             jsonMsg = JsonConvert.SerializeObject(request);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
-            
             int loginBytesReceived = await clientSocket.ReceiveAsync(buffer);
             jsonMsg = Encoding.ASCII.GetString(buffer, 0, loginBytesReceived);
             var loginData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
             Console.WriteLine("login: " + loginData.Command);
-
             request = new Request { Command = passwordRequest };
             jsonMsg = JsonConvert.SerializeObject(request);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
-
             int passwordBytesReceived = await clientSocket.ReceiveAsync(buffer);
             jsonMsg = Encoding.ASCII.GetString(buffer, 0, passwordBytesReceived);
             var passwordData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
@@ -238,7 +241,7 @@ namespace Server
 
         private async Task UsersCommand()
         {
-            using (StreamReader reader = new StreamReader(filesDirectory)) 
+            using (StreamReader reader = new StreamReader(filesDirectory))
             {
                 var jsonUsers = await reader.ReadToEndAsync();
                 Console.WriteLine(jsonUsers);
@@ -248,7 +251,8 @@ namespace Server
                 };
 
                 try
-                { var users = JsonConvert.DeserializeObject<List<User>>(jsonUsers, settings); 
+                {
+                    var users = JsonConvert.DeserializeObject<List<User>>(jsonUsers, settings);
                 }
                 catch (JsonSerializationException)
                 {
@@ -256,11 +260,11 @@ namespace Server
                     users = new List<User> { user };
                 }
                 List<string> userNames = new List<string>();
-                foreach (var user in users )
+                foreach (var user in users)
                 {
                     userNames.Add(user.Login);
                 }
-                
+
                 var userMessage = new UsersResponse
                 {
                     Message = "Available users",
@@ -274,6 +278,57 @@ namespace Server
         }
 
         private async Task LoginCommand()
-        { }
+        {
+            string loginRequest = "Please type your login:";
+            string passwordRequest = "Please type your password:";
+            var buffer = new byte[1024];
+
+            var request = new Request { Command = loginRequest };
+            jsonMsg = JsonConvert.SerializeObject(request);
+            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+
+            int loginBytesReceived = await clientSocket.ReceiveAsync(buffer);
+            jsonMsg = Encoding.ASCII.GetString(buffer, 0, loginBytesReceived);
+            var loginData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
+            Console.WriteLine("login: " + loginData.Command);
+
+            request = new Request { Command = passwordRequest };
+            jsonMsg = JsonConvert.SerializeObject(request);
+            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+
+            int passwordBytesReceived = await clientSocket.ReceiveAsync(buffer);
+            jsonMsg = Encoding.ASCII.GetString(buffer, 0, passwordBytesReceived);
+            var passwordData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
+            Console.WriteLine("password: " + passwordData.Command);
+            bool userFound = false;
+            foreach (var user in users)
+            {
+                if (user.Login == loginData.Command && user.Password == passwordData.Command)
+                {
+                    currentUser = user;
+                    userFound = true;
+                }
+            }
+            if (!userFound)
+                request = new Request { Command = "Wrong credantials!" };
+            else
+                request = new Request { Command = $"{loginData.Command} logged in" };
+            jsonMsg = JsonConvert.SerializeObject(request);
+            await clientSocket.SendAsync (Encoding.ASCII.GetBytes(jsonMsg));
+        }
+
+        private async Task LogoutCommand() 
+        {
+            var response = new Request { Command = "No user is currently logged in" };
+            Console.WriteLine("currentUser: " + currentUser);
+            if (currentUser != null)
+            {
+                Console.WriteLine("dupa");
+                currentUser = null;
+                response = new Request { Command = "Logout successful" };
+            }
+            var jsonMsg = JsonConvert.SerializeObject(response); 
+            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+        }
     }
 }

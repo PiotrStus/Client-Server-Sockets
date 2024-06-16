@@ -25,18 +25,11 @@ namespace Client
                 Console.WriteLine("Conntected to the server.");
                 Console.WriteLine("Socket connected to -> {0} ", clientSocket.RemoteEndPoint!.ToString());
                 Console.WriteLine("######################################\n");
-
-
-
                 byte[] messageReceived = new byte[1024];
                 int byteReceived = clientSocket.Receive(messageReceived);
                 Console.WriteLine("New message from Server: \n\n{0}",
                 Encoding.ASCII.GetString(messageReceived,
                                            0, byteReceived));
-
-
-
-
                 while (exchangeOn)
                 {
                     Console.Write("\nEnter a new command: ");
@@ -66,7 +59,6 @@ namespace Client
                 Console.WriteLine("Can't establish connection to the server: " + ex.ToString());
             }
         }
-
         static void HandleResponse(string newMessage, string command, Socket clientSocket)
         {
             switch (command)
@@ -85,21 +77,16 @@ namespace Client
                 case "register":
                     var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
                     Console.WriteLine(loginResponse.Command);
-
- 
                     string userInput = Console.ReadLine()!;
                     var loginRequest = new Request { Command = userInput };
                     var jsonMsg = JsonConvert.SerializeObject(loginRequest);
                     clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
-
-
                     var messageReceived = new byte[1024];
                     int byteReceived = clientSocket.Receive(messageReceived);
                     newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
                     var passwordResponse = JsonConvert.DeserializeObject<Request>(newMessage);
                     Console.Clear();
                     Console.WriteLine(passwordResponse.Command);
-
                     userInput = Console.ReadLine()!;
                     var passwordRequest = new Request { Command = userInput };
                     jsonMsg = JsonConvert.SerializeObject(passwordRequest);
@@ -110,13 +97,44 @@ namespace Client
                     Console.Clear();
                     Console.WriteLine(userCreated.Command);
                     break;
+                case "login":
+                    loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.WriteLine(loginResponse.Command);
+                    userInput = Console.ReadLine()!;
+                    loginRequest = new Request { Command = userInput };
+                    jsonMsg = JsonConvert.SerializeObject(loginRequest);
+                    clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                    messageReceived = new byte[1024];
+                    byteReceived = clientSocket.Receive(messageReceived);
+                    newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
+                    passwordResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.Clear();
+                    Console.WriteLine(passwordResponse.Command);
+                    userInput = Console.ReadLine()!;
+                    passwordRequest = new Request { Command = userInput };
+                    jsonMsg = JsonConvert.SerializeObject(passwordRequest);
+                    clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                    byteReceived = clientSocket.Receive(messageReceived);
+                    newMessage = Encoding.ASCII.GetString(messageReceived, 0, byteReceived);
+                    var loginStatus = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.Clear();
+                    Console.WriteLine(loginStatus.Command);
+                    break;
+                case "logout":
+                    var logoutResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    Console.WriteLine("                " + logoutResponse.Command);
+
+                    Console.WriteLine("\n######################################################");
+                    Console.WriteLine("######################################################\n");
+                    break;
                 case "uptime":
                     var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
                     Console.WriteLine("              " + uptimeResponse.Message);
                     Console.WriteLine("\n######################################################\n");
-
                     Console.WriteLine($"                        {uptimeResponse.UpTime}");
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
@@ -127,7 +145,6 @@ namespace Client
                     Console.WriteLine("######################################################\n");
                     Console.WriteLine("                  " + helpResponse.Message);
                     Console.WriteLine("\n######################################################\n");
-
                     foreach (var availableCommand in helpResponse.Commands)
                     {
                     Console.WriteLine($"          {availableCommand}");
@@ -136,8 +153,8 @@ namespace Client
                     Console.WriteLine("######################################################\n");
                     break;
                 case "stop":
+                    clientSocket.Close(); 
                     exchangeOn = false;
-                    clientSocket.Close();
                     break;
                 case "users":
                     var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
@@ -145,7 +162,6 @@ namespace Client
                     Console.WriteLine("######################################################\n");
                     Console.WriteLine("                  " + usersResponse.Message);
                     Console.WriteLine("\n######################################################\n");
-
                     foreach (var user in usersResponse.Users)
                     {
                         Console.WriteLine($"{user} ");
