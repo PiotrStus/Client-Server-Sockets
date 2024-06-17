@@ -351,6 +351,8 @@ namespace Server
                 response = new Request { Command = $"User - {currentUser.Login} logout successful" };
                 currentUser = null;
             }
+            isAdmin = isAdmin? false : isAdmin;
+
             var jsonMsg = JsonConvert.SerializeObject(response);
             await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
         }
