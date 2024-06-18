@@ -13,7 +13,6 @@ namespace Client
 {
     internal class Program
     {
-        private static string? jsonMsg;
         private static bool exchangeOn = true;
         static void Main(string[] args)
         {
@@ -165,9 +164,9 @@ namespace Client
                     var helpResponse = JsonConvert.DeserializeObject<HelpResponse>(newMessage);
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                  " + helpResponse.Message);
+                    Console.WriteLine("                  " + helpResponse?.Message);
                     Console.WriteLine("\n######################################################\n");
-                    foreach (var availableCommand in helpResponse.Commands)
+                    foreach (var availableCommand in helpResponse?.Commands)
                     {
                     Console.WriteLine($"          {availableCommand}");
                     }
@@ -186,9 +185,9 @@ namespace Client
                     var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                  " + usersResponse.Message);
+                    Console.WriteLine("                  " + usersResponse?.Message);
                     Console.WriteLine("\n######################################################\n");
-                    foreach (var user in usersResponse.Users)
+                    foreach (var user in usersResponse?.Users)
                     {
                         Console.WriteLine($"{user} ");
                     }
@@ -196,7 +195,8 @@ namespace Client
                     Console.WriteLine("######################################################\n");
                     break;
                 default:
-                    Console.WriteLine("Unknown command. Type help for list of avaiable commands");
+                    var wrongResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.WriteLine(wrongResponse.Command);
                     break;
             }
         }
