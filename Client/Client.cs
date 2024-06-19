@@ -72,7 +72,6 @@ namespace Client
                     Console.WriteLine(loginResponse.Command);
                     string userInput = Console.ReadLine()!;
                     communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-
                     string messageReceived = communicationService.ReceiveRequest();
                     var passwordResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
                     Console.Clear();
@@ -105,20 +104,17 @@ namespace Client
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
                     Console.WriteLine("             " + logoutResponse.Command);
-
                     Console.WriteLine("\n######################################################");
                     Console.WriteLine("######################################################\n");
                     break;
                 case "delete":
-                    //odbior z serwera
+                    //fetching data from server
                     var deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
                     Console.WriteLine(deleteResponse.Command);
-
-                    // pobranie danych i wysylka do serwera
+                    // user's input data and send to server
                     userInput = Console.ReadLine()!;
                     communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-
-                    // odbior potwierdzenia/odmowy z serwera
+                    // accept/reject response from server
                     messageReceived = communicationService.ReceiveRequest();
                     deleteResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
                     Console.Clear();

@@ -21,7 +21,7 @@ namespace Server
                 Console.WriteLine("Client connected.");
                 var communicationService = new SocketCommunicationService(clientSocket);
                 var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
-                Server server = new Server(communicationService, new UserManagementService(path));
+                Server server = new Server(communicationService, new UserManagementService(path), new MessageService());
                 server.Start();
             }
         }

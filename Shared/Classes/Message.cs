@@ -8,14 +8,17 @@ namespace Shared.Classes
 {
     public class Message
     {
-        public string Sender { get; set; }
-        public string Content { get; set; }
-        public DateTime Timestamp { get; set; }
+        private User _sernder;
+        private User _recipient;
+        private string _content;
+        private DateTime _timeStamp;
 
-        public Message(string sender, string content)
+        public Message(User sender, User recipient, string content)
         {
-            Sender = sender;
-            Content = content;
+            _sernder = sender;
+            _recipient = recipient;
+            _content = content;
+            _timeStamp = DateTime.Now;
         }
     }
 }

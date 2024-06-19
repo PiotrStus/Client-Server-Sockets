@@ -21,6 +21,7 @@ namespace Server
     {
         private readonly ICommunicationService _communicationService;
         private readonly IUserManagementService _userManagementService;
+        private readonly IMessageService _messageService;
         private static string ServerVersion { get; set; } = "0.1.1";
         private static DateTime ServerCreationDate { get; set; }
         private static bool communicationOn = true;
@@ -29,12 +30,11 @@ namespace Server
                                             "help - list of available commands\ninfo - server's version&creation date\n" +
                                             "register - register a new user\n" + "login - user login\n" +
                                             "stop - stops server and the client\n";
-        private User? currentUser;
-        bool isAdmin;
-        public Server(ICommunicationService communicationService, IUserManagementService userManagementService)
+        public Server(ICommunicationService communicationService, IUserManagementService userManagementService, IMessageService messageService)
         {
             _communicationService = communicationService;
             _userManagementService = userManagementService;
+            _messageService = messageService;
             ServerCreationDate = DateTime.Now;
         }
         public void Start()
@@ -169,14 +169,14 @@ namespace Server
                 }
             };
 
-            if (currentUser != null)
+            if (_userManagementService.GetUser != null)
             {
                 helpMessage.Commands.Add("logout - user logout");
                 helpMessage.Commands.Add("message - send a message");
             }
             else
                 helpMessage.Commands.Add("login - login an user");
-            if (isAdmin)
+            if (_userManagementService.IsAdmin())
             {
                 helpMessage.Commands.Add("users - list of registered users");
                 helpMessage.Commands.Add("delete - delete an user");
@@ -205,7 +205,7 @@ namespace Server
         }
         private void UsersCommand()
         {
-            if (!isAdmin)
+            if (!_userManagementService.IsAdmin())
             {
                 var response = new UsersResponse
                 {
@@ -245,25 +245,15 @@ namespace Server
 
             if (user != null)
             {
-                currentUser = user;
-                isAdmin = currentUser.Type == Constants.UserTypes.Admin;
                 _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = $"{loginData.Command} logged in" }));
             }
             else
                 _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Wrong credantials!" }));
-
         }
         private void LogoutCommand()
         {
-            var response = new Request { Command = "No user is currently logged in" };
-            if (currentUser != null)
-            {
-                response = new Request { Command = $"User - {currentUser.Login} logout successful" };
-                currentUser = null;
-            }
-            isAdmin = isAdmin ? false : isAdmin;
-
-            _communicationService.SendResponse(JsonConvert.SerializeObject(response));
+            var response = _userManagementService.LogoutUser();
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = response }));
         }
         private void DeleteCommand()
         {

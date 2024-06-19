@@ -14,6 +14,8 @@ namespace Shared.Interfaces
         User? LoginUser(string login, string password);
         string LogoutUser();
         string DeleteUser(string login);
+        User? GetUser();
+        bool IsAdmin();
         List<User>? GetAllUsers();
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Shared.Classes.Shared.Classes;
 using Shared.Interfaces;
+using Shared.Requests;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,10 @@ namespace Shared.Classes
         private List<User> users = new List<User>();
         
         private readonly string _filePath ;
-        
+        public bool UserIsAdmin { get; private set; }
+
+        public User CurrentUser { get; private set; }
+
         public UserManagementService(string filePath) 
         {
             _filePath = filePath;
@@ -46,12 +50,28 @@ namespace Shared.Classes
 
         public User? LoginUser(string login, string password)
         {
-            return users.Find(u => u.Login == login && u.Password == password);
+            var user = users.Find(u => u.Login == login && u.Password == password);
+
+            if (user != null)
+            {
+                CurrentUser = user;
+                UserIsAdmin = CurrentUser.Type == Constants.UserTypes.Admin;
+                return CurrentUser;
+            }
+            return null;
         }
 
         public string LogoutUser()
         {
-            throw new NotImplementedException();
+
+            var response = "No user is currently logged in";
+            if (CurrentUser != null)
+            {
+                response = $"User - {CurrentUser.Login} logout successful";
+                CurrentUser = null;
+            }
+            UserIsAdmin = UserIsAdmin ? false : UserIsAdmin;
+            return response;
         }
 
         public string RegisterUser(string login, string password)
@@ -95,6 +115,15 @@ namespace Shared.Classes
         {
             var json = JsonConvert.SerializeObject(users, Formatting.Indented);
             File.WriteAllText(_filePath, json);
+        }
+
+        public User? GetUser()
+        {
+            return CurrentUser;
+        }
+        public bool IsAdmin()
+        {
+            return UserIsAdmin;
         }
     }
 }
