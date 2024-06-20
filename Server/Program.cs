@@ -1,4 +1,5 @@
 ﻿using Shared.Classes;
+using Shared.Interfaces;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -20,8 +21,14 @@ namespace Server
                 var clientSocket = serverSocket.Accept();
                 Console.WriteLine("Client connected.");
                 var communicationService = new SocketCommunicationService(clientSocket);
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
-                Server server = new Server(communicationService, new UserManagementService(path), new MessageService());
+                var usersPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
+                var messagesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/messages.json");
+
+
+                IUserManagementService userManagementService = new UserManagementService(usersPath);
+                IMessageService messageService = new MessageService(userManagementService, messagesPath);
+
+                Server server = new Server(communicationService, userManagementService, messageService);
                 server.Start();
             }
         }

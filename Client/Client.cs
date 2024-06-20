@@ -144,6 +144,28 @@ namespace Client
                     Console.WriteLine("######################################################\n");
                     break;
                 case "message":
+                    // prosba o podanie adresata
+                    var messageResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+                    Console.WriteLine(messageResponse.Command);
+
+                    // wyslanie adresata
+                    userInput = Console.ReadLine()!;
+                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
+
+                    // prosba o podanie wiadomosci
+                    messageReceived = communicationService.ReceiveRequest();
+                    messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
+                    Console.WriteLine(messageResponse.Command);
+
+                    // wyslanie wiadomosci
+                    userInput = Console.ReadLine()!;
+                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
+
+                    // informacja o statusie wiadomosci
+                    messageReceived = communicationService.ReceiveRequest();
+                    messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
+                    Console.WriteLine(messageResponse.Command);
+
                     break;
                 case "stop":
                     exchangeOn = false;

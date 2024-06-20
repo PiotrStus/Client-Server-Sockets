@@ -22,7 +22,6 @@ namespace Server
         private readonly ICommunicationService _communicationService;
         private readonly IUserManagementService _userManagementService;
         private readonly IMessageService _messageService;
-        private static string ServerVersion { get; set; } = "0.1.1";
         private static DateTime ServerCreationDate { get; set; }
         private static bool communicationOn = true;
         private static bool dataExchange = true;
@@ -150,7 +149,7 @@ namespace Server
             {
                 Message = "Server's informations",
                 ServerCreated = ServerCreationDate,
-                ServerVersion = ServerVersion,
+                ServerVersion = Config.ServerVersion,
             };
             _communicationService.SendResponse(JsonConvert.SerializeObject(infoResponse));
         }
@@ -268,7 +267,28 @@ namespace Server
         }
         private void MessageCommand()
         {
+            // prosba o podanie adresata
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Who do you want to send a message to?" }));
 
+            // otrzymanie adresata
+            var data = _communicationService.ReceiveRequest();
+            var messageRecipient = JsonConvert.DeserializeObject<Request>(data);
+            Console.WriteLine(messageRecipient.Command);
+
+            // prosba o podanie wiadomosci
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter your message" }));
+
+            // otrzymanie wiadomosci
+            data = _communicationService.ReceiveRequest();
+            var message = JsonConvert.DeserializeObject<Request>(data);
+            Console.WriteLine(message.Command);
+
+            // walidacja wiadomosci
+            var messageStatus = _messageService.SendMessage(messageRecipient.Command, message.Command);
+            //_messageService.Test();
+
+            // wyslanie odpowiedzi
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = messageStatus }));
         }
         private void WrongCommand()
         {

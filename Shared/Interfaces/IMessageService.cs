@@ -12,12 +12,14 @@ namespace Shared.Interfaces
         /// <summary>
         /// Sends a message from one user to another.
         /// </summary>
+        /// <param name="recipient">The user who will receive the message.</param>
         /// <param name="message">The message to be sent.</param>
-        void SendMessage(Message message);
+        string SendMessage(string recipient, string message);
         /// <summary>
         /// Check all messages for a specific user
         /// </summary>
         /// <param name="user">The user which messages should be checked.</param>
         List<Message> GetMessage(User user);
+        void Test();
     }
 }

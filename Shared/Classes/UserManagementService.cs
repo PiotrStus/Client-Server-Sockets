@@ -12,16 +12,17 @@ namespace Shared.Classes
 {
     public class UserManagementService : IUserManagementService
     {
+
         private List<User> users = new List<User>();
         
-        private readonly string _filePath ;
+        private readonly string _usersPath;
         public bool UserIsAdmin { get; private set; }
 
         public User CurrentUser { get; private set; }
 
         public UserManagementService(string filePath) 
         {
-            _filePath = filePath;
+            _usersPath = filePath;
             users = LoadUsers();
             var x = RegisterAdmin("adam", "gadam");
         }
@@ -41,10 +42,10 @@ namespace Shared.Classes
 
         public List<User> GetAllUsers()
         {
-            foreach (var user in users) 
-                { 
-                Console.WriteLine(user.Login);
-            }
+            //foreach (var user in users) 
+            //    { 
+            //    Console.WriteLine(user.Login);
+            //}
             return users;
         }
 
@@ -99,12 +100,12 @@ namespace Shared.Classes
         }
         private List<User> LoadUsers()
         {
-            if (!File.Exists(_filePath))
+            if (!File.Exists(_usersPath))
             {
                 return new List<User>();
             }
 
-            var json = File.ReadAllText(_filePath);
+            var json = File.ReadAllText(_usersPath);
             var settings = new JsonSerializerSettings
             {
                 Converters = new List<JsonConverter> { new UserConverter() }
@@ -114,7 +115,7 @@ namespace Shared.Classes
         private void SaveUsers(List<User> users)
         {
             var json = JsonConvert.SerializeObject(users, Formatting.Indented);
-            File.WriteAllText(_filePath, json);
+            File.WriteAllText(_usersPath, json);
         }
 
         public User? GetUser()
