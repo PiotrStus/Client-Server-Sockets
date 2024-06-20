@@ -51,7 +51,6 @@ namespace Client
                 Console.WriteLine("Can't establish connection to the server: " + ex.ToString());
             }
         }
-
         static void HandleResponse(string newMessage, string command, ICommunicationService communicationService)
         {
             switch (command)
@@ -144,11 +143,11 @@ namespace Client
                     Console.WriteLine("######################################################\n");
                     break;
                 case "message":
-                    // prosba o podanie adresata
+                    // request to provide the recipient
                     var messageResponse = JsonConvert.DeserializeObject<Request>(newMessage);
                     Console.WriteLine(messageResponse.Command);
 
-                    // wyslanie adresata
+                    // sending the recipient
                     userInput = Console.ReadLine()!;
                     communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
 
@@ -157,18 +156,17 @@ namespace Client
                     messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
                     Console.WriteLine(messageResponse.Command);
 
-                    // wyslanie wiadomosci
+                    // request for a message
                     userInput = Console.ReadLine()!;
                     communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
 
-                    // informacja o statusie wiadomosci
+                    // information about the message status
                     messageReceived = communicationService.ReceiveRequest();
                     messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
                     Console.WriteLine(messageResponse.Command);
-
                     break;
                 case "mailbox":
-                    // odbior maili
+                    // messages receive
                     var mailboxResponse = JsonConvert.DeserializeObject<MailsResponse>(newMessage);
                     Console.WriteLine(mailboxResponse.Message);
                     if (mailboxResponse.Mails.Count > 0)

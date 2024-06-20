@@ -11,7 +11,6 @@ namespace Shared.Classes
     public class SocketCommunicationService : ICommunicationService
     {
         private Socket _clientSocket;
-
         public SocketCommunicationService(Socket socket)
         {
             _clientSocket = socket;
@@ -22,7 +21,6 @@ namespace Shared.Classes
             int numBytes = _clientSocket.Receive(buffer);
             return Encoding.ASCII.GetString(buffer, 0, numBytes);
         }
-
         public void SendResponse(string response)
         {
             _clientSocket.Send(Encoding.ASCII.GetBytes(response));

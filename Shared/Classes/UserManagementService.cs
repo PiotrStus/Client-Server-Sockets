@@ -12,21 +12,16 @@ namespace Shared.Classes
 {
     public class UserManagementService : IUserManagementService
     {
-
         private List<User> users = new List<User>();
-
         private readonly string _usersPath;
         public bool UserIsAdmin { get; private set; }
-
         public User CurrentUser { get; private set; }
-
         public UserManagementService(string filePath)
         {
             _usersPath = filePath;
             users = LoadUsers();
-            var x = RegisterAdmin("adam", "gadam");
+            var x = RegisterAdmin("admin", "admin123");
         }
-
         public string DeleteUser(string login)
         {
             var user = LoadUsers();
@@ -39,16 +34,10 @@ namespace Shared.Classes
             SaveUsers(users);
             return $"User {login} has been deleted.";
         }
-
         public List<User> GetAllUsers()
         {
-            //foreach (var user in users) 
-            //    { 
-            //    Console.WriteLine(user.Login);
-            //}
             return users;
         }
-
         public User? LoginUser(string login, string password)
         {
             var user = users.Find(u => u.Login == login && u.Password == password);
@@ -61,10 +50,8 @@ namespace Shared.Classes
             }
             return null;
         }
-
         public string LogoutUser()
         {
-
             var response = "No user is currently logged in";
             if (CurrentUser != null)
             {
@@ -74,7 +61,6 @@ namespace Shared.Classes
             UserIsAdmin = UserIsAdmin ? false : UserIsAdmin;
             return response;
         }
-
         public string RegisterUser(string login, string password)
         {
             if (users.Any(u => u.Login == login))
@@ -86,7 +72,6 @@ namespace Shared.Classes
             SaveUsers(users);
             return $"User: {login} created.";
         }
-
         public string RegisterAdmin(string login, string password)
         {
             if (users.Any(u => u.Login == login))
@@ -104,7 +89,6 @@ namespace Shared.Classes
             {
                 return new List<User>();
             }
-
             using (var reader = new StreamReader(_usersPath))
             {
                 var json = reader.ReadToEnd();
@@ -130,7 +114,6 @@ namespace Shared.Classes
                 Console.WriteLine(ex.ToString());
             }
         }
-
         public User? GetUser()
         {
             return CurrentUser;

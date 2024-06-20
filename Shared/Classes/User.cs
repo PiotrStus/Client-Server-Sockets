@@ -14,7 +14,6 @@ namespace Shared.Classes
             Password = password;
             Login = login;
         }
-
         public abstract Constants.UserTypes Type { get; }
         public string Login { get; private set; }
         public string Password { get; private set; }
