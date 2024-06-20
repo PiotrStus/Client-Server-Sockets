@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace Shared.Interfaces
 {
-    public interface IFileReader
+    public interface ICommunicationService
     {
-        void ReadFromFile(string filePath);
+        void SendResponse(string response);
+        string ReceiveRequest();
     }
 }

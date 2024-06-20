@@ -11,70 +11,42 @@ using Newtonsoft.Json;
 using Shared.Requests;
 using Shared.Responses;
 using Shared.Classes.Shared.Classes;
+using Shared.Interfaces;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 namespace Server
 {
     public class Server
     {
-        private string filesDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
-        private static IPAddress IpAddress = IPAddress.Parse("127.0.0.1");
-        private const int Port = 9013;
-        private static string ServerVersion { get; set; } = "0.1.1";
+        private readonly ICommunicationService _communicationService;
+        private readonly IUserManagementService _userManagementService;
+        private readonly IMessageService _messageService;
         private static DateTime ServerCreationDate { get; set; }
-        private static string? jsonMsg;
-        private Socket clientSocket;
-        private IPEndPoint endpoint;
-        private Socket serverSocket;
         private static bool communicationOn = true;
         private static bool dataExchange = true;
         private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
                                             "help - list of available commands\ninfo - server's version&creation date\n" +
                                             "register - register a new user\n" + "login - user login\n" +
                                             "stop - stops server and the client\n";
-
-        AdminUser adminUser = new AdminUser("admin", "admin123");
-        private User? currentUser;
-        bool isAdmin;
-        private List<User> users = new List<User>();
-        public Server()
+        public Server(ICommunicationService communicationService, IUserManagementService userManagementService, IMessageService messageService)
         {
-            endpoint = new IPEndPoint(IpAddress, Port);
-            serverSocket = new Socket(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            _communicationService = communicationService;
+            _userManagementService = userManagementService;
+            _messageService = messageService;
             ServerCreationDate = DateTime.Now;
-            AddAdmin(adminUser);
         }
-        private void AddAdmin(AdminUser adminUser)
-        {
-            using (StreamWriter writer = new StreamWriter(filesDirectory))
-            {
-                users.Add(adminUser);
-                var admin = JsonConvert.SerializeObject(adminUser);
-                writer.WriteLine(admin);
-            }
-        }
-        public async Task Start()
+        public void Start()
         {
             try
             {
-                serverSocket.Bind(endpoint);
-                serverSocket.Listen(1);
                 while (communicationOn)
                 {
-                    Console.WriteLine("Server is waiting for connection on localhost:9013...");
-                    clientSocket = await serverSocket.AcceptAsync();
-                    Console.WriteLine("Client connected.");
-                    var messageSent = Encoding.ASCII.GetBytes(helpMessage);
-                    int bytesSent = await clientSocket.SendAsync(messageSent);
-                    var buffer = new byte[1024];
+                    _communicationService.SendResponse(JsonConvert.SerializeObject(helpMessage));
                     while (dataExchange)
                     {
-                        string data = null!;
-                        int numByte = clientSocket.Receive(buffer);
-                        data += Encoding.ASCII.GetString(buffer, 0, numByte);
+                        string data = _communicationService.ReceiveRequest();
                         var request = JsonConvert.DeserializeObject<Request>(data);
-                        Console.WriteLine("Command received -> {0}", data);
-                        Console.WriteLine(request.Command.ToLower());
                         switch (request.Command.ToLower())
                         {
                             case "help":
@@ -99,33 +71,42 @@ namespace Server
                                 }
                             case "register":
                                 {
-                                    await RegisterCommand();
+                                    RegisterCommand();
                                     break;
                                 }
                             case "login":
                                 {
-                                    await LoginCommand();
+                                    LoginCommand();
                                     break;
                                 }
                             case "logout":
                                 {
-                                    await LogoutCommand();
+                                    LogoutCommand();
                                     break;
                                 }
                             case "users":
                                 {
-                                    await UsersCommand();
+                                    UsersCommand();
                                     break;
                                 }
                             case "delete":
                                 {
-                                    await DeleteCommand();
+                                    DeleteCommand();
+                                    break;
+                                }
+                            case "message":
+                                {
+                                    SendMessageCommand();
+                                    break;
+                                }
+                            case "mailbox":
+                                {
+                                    GetMessageCommand();
                                     break;
                                 }
                             default:
                                 {
-                                    jsonMsg = JsonConvert.SerializeObject("Please enter a valid command!\n\n" + helpMessage);
-                                    clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                                    WrongCommand();
                                     break;
                                 }
                         }
@@ -137,10 +118,6 @@ namespace Server
                 Console.WriteLine(ex.Message);
                 Console.WriteLine(ex.StackTrace);
             }
-            finally
-            {
-                serverSocket.Close();
-            }
         }
         private void UpTimeCommand()
         {
@@ -149,9 +126,7 @@ namespace Server
                 Message = "Server's uptime [hh:mm:ss]",
                 UpTime = (DateTime.Now.TimeOfDay - ServerCreationDate.TimeOfDay).ToString(@"hh\:mm\:ss")
             };
-            jsonMsg = JsonConvert.SerializeObject(upTime);
-            Console.WriteLine(jsonMsg);
-            clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+            _communicationService.SendResponse(JsonConvert.SerializeObject(upTime));
         }
         private void StopCommand()
         {
@@ -161,8 +136,7 @@ namespace Server
                 {
                     Command = "stop"
                 };
-                jsonMsg = JsonConvert.SerializeObject(stop);
-                clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                _communicationService.SendResponse(JsonConvert.SerializeObject(stop));
             }
             catch (Exception ex)
             {
@@ -180,10 +154,9 @@ namespace Server
             {
                 Message = "Server's informations",
                 ServerCreated = ServerCreationDate,
-                ServerVersion = ServerVersion,
+                ServerVersion = Config.ServerVersion,
             };
-            jsonMsg = JsonConvert.SerializeObject(infoResponse);
-            clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+            _communicationService.SendResponse(JsonConvert.SerializeObject(infoResponse));
         }
         private void HelpCommand()
         {
@@ -200,194 +173,147 @@ namespace Server
                 }
             };
 
-            if (currentUser != null)
+            if (_userManagementService.GetUser() != null)
             {
                 helpMessage.Commands.Add("logout - user logout");
+                helpMessage.Commands.Add("message - send a message");
+                helpMessage.Commands.Add("mailbox - check your mailbox");
+                helpMessage.Commands.Add("message - send a message");
             }
             else
                 helpMessage.Commands.Add("login - login an user");
-            if (isAdmin)
+            if (_userManagementService.IsAdmin())
             {
                 helpMessage.Commands.Add("users - list of registered users");
                 helpMessage.Commands.Add("delete - delete an user");
             }
-            jsonMsg = JsonConvert.SerializeObject(helpMessage);
-            clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+            _communicationService.SendResponse(JsonConvert.SerializeObject(helpMessage));
         }
-        private async Task RegisterCommand()
+        private void RegisterCommand()
         {
             string loginRequest = "Please type your login:";
             string passwordRequest = "Please type your password:";
-            var buffer = new byte[1024];
-            var request = new Request { Command = loginRequest };
-            jsonMsg = JsonConvert.SerializeObject(request);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
-            int loginBytesReceived = await clientSocket.ReceiveAsync(buffer);
-            jsonMsg = Encoding.ASCII.GetString(buffer, 0, loginBytesReceived);
-            var loginData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
-            Console.WriteLine("login: " + loginData.Command);
-            request = new Request { Command = passwordRequest };
-            jsonMsg = JsonConvert.SerializeObject(request);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
-            int passwordBytesReceived = await clientSocket.ReceiveAsync(buffer);
-            jsonMsg = Encoding.ASCII.GetString(buffer, 0, passwordBytesReceived);
-            var passwordData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
-            Console.WriteLine("password: " + passwordData.Command);
-            users.Add(new RegularUser(loginData.Command, passwordData.Command));
-            string jsonUsers = JsonConvert.SerializeObject(users);
-            Console.WriteLine("jsonString: " + jsonUsers);
-            using (StreamWriter writer = new StreamWriter(filesDirectory))
-            {
-                writer.WriteLine(jsonUsers);
-            }
-            string userCreated = $"User: {loginData.Command} created.";
-            request = new Request { Command = userCreated };
-            jsonMsg = JsonConvert.SerializeObject(request);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = loginRequest }));
+
+            string data = _communicationService.ReceiveRequest();
+            var loginData = JsonConvert.DeserializeObject<Request>(data);
+
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = passwordRequest }));
+
+            data = _communicationService.ReceiveRequest();
+            var passwordData = JsonConvert.DeserializeObject<Request>(data);
+
+            string registrationResult = _userManagementService.RegisterUser(loginData.Command, passwordData.Command);
+
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = registrationResult }));
         }
-        private async Task UsersCommand()
+        private void UsersCommand()
         {
-            using (StreamReader reader = new StreamReader(filesDirectory))
+            if (!_userManagementService.IsAdmin())
             {
-                if (!isAdmin)
+                var response = new UsersResponse
                 {
-                    var response = new UsersResponse
-                    {
-                        Message = "Access denied. Only admins can list users.",
-                        Users = new List<string>()
-                    };
-                    jsonMsg = JsonConvert.SerializeObject(response);
-                    await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
-                    return;
-                }
-                var jsonUsers = await reader.ReadToEndAsync();
-                Console.WriteLine(jsonUsers);
-                var settings = new JsonSerializerSettings
-                {
-                    Converters = new List<JsonConverter> { new UserConverter() },
+                    Message = "Access denied. Only admins can list users.",
+                    Users = new List<string>()
                 };
-
-                try
-                {
-                    var users = JsonConvert.DeserializeObject<List<User>>(jsonUsers, settings);
-                }
-                catch (JsonSerializationException)
-                {
-                    var user = JsonConvert.DeserializeObject<User>(jsonUsers, settings);
-                    users = new List<User> { user };
-                }
-                List<string> userNames = new List<string>();
-                foreach (var user in users)
-                {
-                    userNames.Add(user.Login);
-                }
-
-                var userMessage = new UsersResponse
-                {
-                    Message = "Available users",
-                    Users = userNames
-                };
-                jsonMsg = JsonConvert.SerializeObject(userMessage);
-                Console.Write(jsonMsg);
-                //Console.ReadKey(); 
-                clientSocket.Send(Encoding.ASCII.GetBytes(jsonMsg));
+                _communicationService.SendResponse(JsonConvert.SerializeObject(response));
+                return;
             }
+            var users = _userManagementService.GetAllUsers();
+            List<string> userNames = users.Select(user => user.Login).ToList();
+            var userMessage = new UsersResponse
+            {
+                Message = "Available users",
+                Users = userNames
+            };
+            _communicationService.SendResponse(JsonConvert.SerializeObject(userMessage));
+
         }
-        private async Task LoginCommand()
+        private void LoginCommand()
         {
             string loginRequest = "Please type your login:";
             string passwordRequest = "Please type your password:";
-            var buffer = new byte[1024];
 
-            var request = new Request { Command = loginRequest };
-            jsonMsg = JsonConvert.SerializeObject(request);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = loginRequest }));
 
-            int loginBytesReceived = await clientSocket.ReceiveAsync(buffer);
-            jsonMsg = Encoding.ASCII.GetString(buffer, 0, loginBytesReceived);
-            var loginData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
-            Console.WriteLine("login: " + loginData.Command);
+            string data = _communicationService.ReceiveRequest();
+            var loginData = JsonConvert.DeserializeObject<Request>(data);
 
-            request = new Request { Command = passwordRequest };
-            jsonMsg = JsonConvert.SerializeObject(request);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = passwordRequest }));
 
-            int passwordBytesReceived = await clientSocket.ReceiveAsync(buffer);
-            jsonMsg = Encoding.ASCII.GetString(buffer, 0, passwordBytesReceived);
-            var passwordData = JsonConvert.DeserializeObject<Request>(jsonMsg)!;
-            Console.WriteLine("password: " + passwordData.Command);
-            bool userFound = false;
-            foreach (var user in users)
+
+            data = _communicationService.ReceiveRequest();
+            var passwordData = JsonConvert.DeserializeObject<Request>(data);
+
+            var user = _userManagementService.LoginUser(loginData.Command, passwordData.Command);
+
+            if (user != null)
             {
-                if (user.Login == loginData.Command && user.Password == passwordData.Command)
-                {
-                    currentUser = user;
-                    if (currentUser.Type == Constants.UserTypes.Admin)
-                        isAdmin = true;
-                    userFound = true;
-                }
+                _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = $"{loginData.Command} logged in" }));
             }
-            if (!userFound)
-                request = new Request { Command = "Wrong credantials!" };
             else
-                request = new Request { Command = $"{loginData.Command} logged in" };
-            jsonMsg = JsonConvert.SerializeObject(request);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+                _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Wrong credantials!" }));
         }
-        private async Task LogoutCommand()
+        private void LogoutCommand()
         {
-            var response = new Request { Command = "No user is currently logged in" };
-            Console.WriteLine("currentUser: " + currentUser);
-            if (currentUser != null)
-            {
-                response = new Request { Command = $"User - {currentUser.Login} logout successful" };
-                currentUser = null;
-            }
-            var jsonMsg = JsonConvert.SerializeObject(response);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+            var response = _userManagementService.LogoutUser();
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = response }));
         }
-
-        private async Task DeleteCommand()
+        private void DeleteCommand()
         {
             var deleteRequest = new Request { Command = "Which user do you want to delete? " };
-            var buffer = new byte[1024];
-            var jsonMsg = JsonConvert.SerializeObject(deleteRequest);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+            _communicationService.SendResponse(JsonConvert.SerializeObject(deleteRequest));
 
-            int deleteUser = await clientSocket.ReceiveAsync(buffer);
-            jsonMsg = Encoding.ASCII.GetString(buffer, 0, deleteUser);
-            var userTwoDelete = JsonConvert.DeserializeObject<Request>(jsonMsg);
-            Console.WriteLine(userTwoDelete.Command);
-            bool userFound = false;
-            foreach (var user in users)
-            {
-                Console.WriteLine(user.Login + " vs " + userTwoDelete.Command);
-                if (user.Login == userTwoDelete.Command)
-                {
-                    users.Remove(user);
-                    string jsonUsers = JsonConvert.SerializeObject(users);
-                    using (StreamWriter writer = new StreamWriter(filesDirectory))
-                    {
-                        writer.WriteLine(jsonUsers);
-                    }
-                    userFound = true;
-                    break;
-                }
-            }
-            if (userFound)
-            {
-                deleteRequest = new Request { Command = "User deleted" };
-            }
-            else
-            {
-                deleteRequest = new Request { Command = "Can't find the user" };
-            }
-            jsonMsg = JsonConvert.SerializeObject(deleteRequest);
-            await clientSocket.SendAsync(Encoding.ASCII.GetBytes(jsonMsg));
+            var data = _communicationService.ReceiveRequest();
+            var userToDelete = JsonConvert.DeserializeObject<Request>(data);
+            var deleteResponse = _userManagementService.DeleteUser(userToDelete.Command);
+
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = deleteResponse }));
         }
-        private bool IsAdmin()
+        private void SendMessageCommand()
         {
-            return currentUser != null && currentUser.Type == Constants.UserTypes.Admin;
+            // prosba o podanie adresata
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Who do you want to send a message to?" }));
+
+            // otrzymanie adresata
+            var data = _communicationService.ReceiveRequest();
+            var messageRecipient = JsonConvert.DeserializeObject<Request>(data);
+            Console.WriteLine(messageRecipient.Command);
+
+            // prosba o podanie wiadomosci
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter your message" }));
+
+            // otrzymanie wiadomosci
+            data = _communicationService.ReceiveRequest();
+            var message = JsonConvert.DeserializeObject<Request>(data);
+            Console.WriteLine(message.Command);
+
+            // walidacja wiadomosci
+            var messageStatus = _messageService.SendMessage(messageRecipient.Command, message.Command);
+            //_messageService.Test();
+
+            // wyslanie odpowiedzi
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = messageStatus }));
+        }
+        private void GetMessageCommand()
+        {
+            // wyslanie odpowiedzi
+            var mails = _messageService.GetMessages();
+            foreach (var mail in mails)
+            {
+                Console.WriteLine(mail.Content);
+            }
+            var mailsResponse = new MailsResponse
+            {
+                Message = "Mailbox: ",
+                Mails = mails
+            };
+            _communicationService.SendResponse(JsonConvert.SerializeObject(mailsResponse));
+        }
+        private void WrongCommand()
+        {
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter a valid command! Type help for the command list." }));
         }
     }
 }
