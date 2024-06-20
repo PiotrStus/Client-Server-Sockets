@@ -273,37 +273,32 @@ namespace Server
         }
         private void SendMessageCommand()
         {
-            // prosba o podanie adresata
+            // request for indication of recipient
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Who do you want to send a message to?" }));
 
-            // otrzymanie adresata
+            // receiving the recipient
             var data = _communicationService.ReceiveRequest();
             var messageRecipient = JsonConvert.DeserializeObject<Request>(data);
-            Console.WriteLine(messageRecipient.Command);
 
             // prosba o podanie wiadomosci
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter your message" }));
 
-            // otrzymanie wiadomosci
+            // request for a message
             data = _communicationService.ReceiveRequest();
             var message = JsonConvert.DeserializeObject<Request>(data);
-            Console.WriteLine(message.Command);
 
-            // walidacja wiadomosci
+
+            // message validation
             var messageStatus = _messageService.SendMessage(messageRecipient.Command, message.Command);
             //_messageService.Test();
 
-            // wyslanie odpowiedzi
+            // sending a reply
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = messageStatus }));
         }
         private void GetMessageCommand()
         {
-            // wyslanie odpowiedzi
+            // sending a reply
             var mails = _messageService.GetMessages();
-            foreach (var mail in mails)
-            {
-                Console.WriteLine(mail.Content);
-            }
             var mailsResponse = new MailsResponse
             {
                 Message = "Mailbox: ",

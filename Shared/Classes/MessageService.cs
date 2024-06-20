@@ -13,14 +13,12 @@ namespace Shared.Classes
         private Dictionary<string, List<Message>> usersMessages = new Dictionary<string, List<Message>>();
         private IUserManagementService _userManagementService;
         private string _messagesPath;
-
         public MessageService(IUserManagementService userManagementService, string messagesPath)
         {
             _userManagementService = userManagementService;
             _messagesPath = messagesPath;
             usersMessages = LoadMessages();
         }
-
         public List<Message> GetMessages()
         {
             var currentUser = _userManagementService.GetUser();
@@ -29,19 +27,8 @@ namespace Shared.Classes
                 return messages;
             if (usersMessages.ContainsKey(currentUser.Login))
                 messages = usersMessages[currentUser.Login];
-            Console.WriteLine(messages);
             return messages;
-
-            //foreach (var message1 in usersMessages)
-            //{
-            //    Console.WriteLine($"Messages for {message1.Key}:");
-            //    foreach (var message2 in message1.Value)
-            //    {
-            //        Console.WriteLine($"Sender: {message2.Sender}, Content: {message2.Content}, CreationDate&Time: {message2.MessageCreationDateTime}");
-            //    }
-            //}
         }
-
         public string SendMessage(string recipient, string message)
         {
             LoadMessages();
@@ -72,7 +59,6 @@ namespace Shared.Classes
             SaveMessages(usersMessages);
             return $"Message has been sent to {recipient}.";
         }
-
         private bool ValidateRecipient(string recipient)
         {
             var users = _userManagementService.GetAllUsers();
@@ -83,26 +69,20 @@ namespace Shared.Classes
             }
             return false;
         }
-
         private bool ValidateMessage(string message)
         {
             if (message.Length > 255)
             {
-                //Console.WriteLine(message.Length);
                 return false;
             }
-            //Console.WriteLine(message.Length);
             return true;
         }
-
         private Dictionary<string, List<Message>> LoadMessages()
         {
             if (!File.Exists(_messagesPath))
             {
-                Console.WriteLine("test");
                 return new Dictionary<string, List<Message>>();
             }
-
             using (var reader = new StreamReader(_messagesPath))
             {
                 var json = reader.ReadToEnd();
@@ -115,7 +95,6 @@ namespace Shared.Classes
                 return JsonConvert.DeserializeObject<Dictionary<string, List<Message>>>(json, settings) ?? new Dictionary<string, List<Message>>();
             }
         }
-
         private void SaveMessages(Dictionary<string, List<Message>> usersMessages)
         {
             try
@@ -131,7 +110,6 @@ namespace Shared.Classes
                 Console.WriteLine(ex.ToString());
             }
         }
-
         private bool CheckFullMailbox(string name)
         {
             if (usersMessages.ContainsKey(name))
@@ -140,15 +118,6 @@ namespace Shared.Classes
                     return false;
             }
             return true;
-        }
-
-        public void Test()
-        {
-            var users = _userManagementService.GetAllUsers();
-            foreach (var user in users)
-            {
-                Console.WriteLine(user.Login);
-            }
         }
     }
 }

@@ -20,6 +20,5 @@ namespace Shared.Interfaces
         /// </summary>
         /// <param name="user">The user which messages should be checked.</param>
         List<Message> GetMessages();
-        void Test();
     }
 }
