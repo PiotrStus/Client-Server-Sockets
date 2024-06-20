@@ -96,7 +96,12 @@ namespace Server
                                 }
                             case "message":
                                 {
-                                    MessageCommand();
+                                    SendMessageCommand();
+                                    break;
+                                }
+                            case "mailbox":
+                                {
+                                    GetMessageCommand();
                                     break;
                                 }
                             default:
@@ -168,9 +173,11 @@ namespace Server
                 }
             };
 
-            if (_userManagementService.GetUser != null)
+            if (_userManagementService.GetUser() != null)
             {
                 helpMessage.Commands.Add("logout - user logout");
+                helpMessage.Commands.Add("message - send a message");
+                helpMessage.Commands.Add("mailbox - check your mailbox");
                 helpMessage.Commands.Add("message - send a message");
             }
             else
@@ -181,7 +188,6 @@ namespace Server
                 helpMessage.Commands.Add("delete - delete an user");
             }
             _communicationService.SendResponse(JsonConvert.SerializeObject(helpMessage));
-
         }
         private void RegisterCommand()
         {
@@ -265,7 +271,7 @@ namespace Server
 
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = deleteResponse }));
         }
-        private void MessageCommand()
+        private void SendMessageCommand()
         {
             // prosba o podanie adresata
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Who do you want to send a message to?" }));
@@ -289,6 +295,21 @@ namespace Server
 
             // wyslanie odpowiedzi
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = messageStatus }));
+        }
+        private void GetMessageCommand()
+        {
+            // wyslanie odpowiedzi
+            var mails = _messageService.GetMessages();
+            foreach (var mail in mails)
+            {
+                Console.WriteLine(mail.Content);
+            }
+            var mailsResponse = new MailsResponse
+            {
+                Message = "Mailbox: ",
+                Mails = mails
+            };
+            _communicationService.SendResponse(JsonConvert.SerializeObject(mailsResponse));
         }
         private void WrongCommand()
         {

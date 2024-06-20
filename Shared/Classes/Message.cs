@@ -18,5 +18,10 @@ namespace Shared.Classes
             Content = content;
             MessageCreationDateTime = DateTime.Now;
         }
+
+        public override string ToString()
+        {
+            return $"Sender: {Sender}, Content: {Content}, CreationDate&Time: {MessageCreationDateTime:yyyy-MM-dd HH:mm:ss}";
+        }
     }
 }

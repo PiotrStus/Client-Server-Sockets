@@ -167,6 +167,20 @@ namespace Client
                     Console.WriteLine(messageResponse.Command);
 
                     break;
+                case "mailbox":
+                    // odbior maili
+                    var mailboxResponse = JsonConvert.DeserializeObject<MailsResponse>(newMessage);
+                    Console.WriteLine(mailboxResponse.Message);
+                    if (mailboxResponse.Mails.Count > 0)
+                    {
+                        foreach (var message in mailboxResponse.Mails)
+                        {
+                            Console.WriteLine(message);
+                        }
+                    }
+                    else
+                        Console.WriteLine("Your mailbox is empty.");
+                    break;
                 case "stop":
                     exchangeOn = false;
                     break;

@@ -19,7 +19,7 @@ namespace Shared.Interfaces
         /// Check all messages for a specific user
         /// </summary>
         /// <param name="user">The user which messages should be checked.</param>
-        List<Message> GetMessage(User user);
+        List<Message> GetMessages();
         void Test();
     }
 }

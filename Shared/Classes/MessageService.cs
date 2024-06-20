@@ -21,9 +21,25 @@ namespace Shared.Classes
             usersMessages = LoadMessages();
         }
 
-        public List<Message> GetMessage(User user)
+        public List<Message> GetMessages()
         {
-            throw new NotImplementedException();
+            var currentUser = _userManagementService.GetUser();
+            List<Message> messages = new List<Message>();
+            if (!ValidateRecipient(currentUser.Login))
+                return messages;
+            if (usersMessages.ContainsKey(currentUser.Login))
+                messages = usersMessages[currentUser.Login];
+            Console.WriteLine(messages);
+            return messages;
+
+            //foreach (var message1 in usersMessages)
+            //{
+            //    Console.WriteLine($"Messages for {message1.Key}:");
+            //    foreach (var message2 in message1.Value)
+            //    {
+            //        Console.WriteLine($"Sender: {message2.Sender}, Content: {message2.Content}, CreationDate&Time: {message2.MessageCreationDateTime}");
+            //    }
+            //}
         }
 
         public string SendMessage(string recipient, string message)
@@ -36,17 +52,12 @@ namespace Shared.Classes
                 return $"Sending failed. Message is too long.";
             if (!CheckFullMailbox(recipient))
                 return $"Sending failed. Mailbox is full.";
-
-
             Message singleUserMessages = new Message(currentUser.Login, message);
-
             var userExistInMailbox = false;
-
             foreach (var userMailbox in usersMessages)
             {
                 if (userMailbox.Key == recipient)
                 {
-                    Console.WriteLine(userMailbox.Key);
                     userMailbox.Value.Add(singleUserMessages);
                     userExistInMailbox = true;
                     break;
@@ -58,25 +69,8 @@ namespace Shared.Classes
                 messages.Add(singleUserMessages);
                 usersMessages.Add(recipient, messages);
             }
-
             SaveMessages(usersMessages);
-
-
-
-
-            foreach (var message1 in usersMessages)
-            {
-                Console.WriteLine($"Messages for {message1.Key}:");
-                foreach (var message2 in message1.Value)
-                {
-                    Console.WriteLine($"Sender: {message2.Sender}, Content: {message2.Content}, CreationDate&Time: {message2.MessageCreationDateTime}");
-                }
-            }
-
-
-
-
-            return "Sending in progress...";
+            return $"Message has been sent to {recipient}.";
         }
 
         private bool ValidateRecipient(string recipient)
