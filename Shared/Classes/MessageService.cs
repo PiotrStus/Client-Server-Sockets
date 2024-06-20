@@ -1,4 +1,5 @@
-﻿using Shared.Interfaces;
+﻿using Newtonsoft.Json;
+using Shared.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,13 +11,16 @@ namespace Shared.Classes
     public class MessageService : IMessageService
     {
         private Dictionary<string, List<Message>> usersMessages = new Dictionary<string, List<Message>>();
-
-
         private IUserManagementService _userManagementService;
-        public MessageService(IUserManagementService userManagementService, string messagePath)
+        private string _messagesPath;
+
+        public MessageService(IUserManagementService userManagementService, string messagesPath)
         {
             _userManagementService = userManagementService;
+            _messagesPath = messagesPath;
+            usersMessages = LoadMessages();
         }
+
         public List<Message> GetMessage(User user)
         {
             throw new NotImplementedException();
@@ -24,21 +28,40 @@ namespace Shared.Classes
 
         public string SendMessage(string recipient, string message)
         {
+            LoadMessages();
             var currentUser = _userManagementService.GetUser();
             if (!ValidateRecipient(recipient))
-                return $"Sending failed. User {recipient} doesn't exist";
+                return $"Sending failed. User {recipient} doesn't exist.";
             if (!ValidateMessage(message))
                 return $"Sending failed. Message is too long.";
+            if (!CheckFullMailbox(recipient))
+                return $"Sending failed. Mailbox is full.";
 
 
+            Message singleUserMessages = new Message(currentUser.Login, message);
 
-            List<Message> singleUserMessages = new List<Message>();
-            singleUserMessages.Add(new Message(recipient, message));
-            usersMessages.Add(currentUser.Login, singleUserMessages);
-            
-            
-            
-            
+            var userExistInMailbox = false;
+
+            foreach (var userMailbox in usersMessages)
+            {
+                if (userMailbox.Key == recipient)
+                {
+                    Console.WriteLine(userMailbox.Key);
+                    userMailbox.Value.Add(singleUserMessages);
+                    userExistInMailbox = true;
+                    break;
+                }
+            }
+            if (!userExistInMailbox)
+            {
+                var messages = new List<Message>();
+                messages.Add(singleUserMessages);
+                usersMessages.Add(recipient, messages);
+            }
+
+            SaveMessages(usersMessages);
+
+
 
 
             foreach (var message1 in usersMessages)
@@ -59,7 +82,7 @@ namespace Shared.Classes
         private bool ValidateRecipient(string recipient)
         {
             var users = _userManagementService.GetAllUsers();
-            foreach (var user in users) 
+            foreach (var user in users)
             {
                 if (user.Login == recipient)
                     return true;
@@ -78,11 +101,52 @@ namespace Shared.Classes
             return true;
         }
 
+        private Dictionary<string, List<Message>> LoadMessages()
+        {
+            if (!File.Exists(_messagesPath))
+            {
+                Console.WriteLine("test");
+                return new Dictionary<string, List<Message>>();
+            }
 
+            using (var reader = new StreamReader(_messagesPath))
+            {
+                var json = reader.ReadToEnd();
 
+                var settings = new JsonSerializerSettings
+                {
+                    Converters = new List<JsonConverter> { new UserConverter() }
+                };
 
+                return JsonConvert.DeserializeObject<Dictionary<string, List<Message>>>(json, settings) ?? new Dictionary<string, List<Message>>();
+            }
+        }
 
+        private void SaveMessages(Dictionary<string, List<Message>> usersMessages)
+        {
+            try
+            {
+                using (var writer = new StreamWriter(_messagesPath))
+                {
+                    var json = JsonConvert.SerializeObject(usersMessages, Formatting.Indented);
+                    writer.Write(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+        }
 
+        private bool CheckFullMailbox(string name)
+        {
+            if (usersMessages.ContainsKey(name))
+            {
+                if (usersMessages[name].Count >= 5)
+                    return false;
+            }
+            return true;
+        }
 
         public void Test()
         {

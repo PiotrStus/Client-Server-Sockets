@@ -14,13 +14,13 @@ namespace Shared.Classes
     {
 
         private List<User> users = new List<User>();
-        
+
         private readonly string _usersPath;
         public bool UserIsAdmin { get; private set; }
 
         public User CurrentUser { get; private set; }
 
-        public UserManagementService(string filePath) 
+        public UserManagementService(string filePath)
         {
             _usersPath = filePath;
             users = LoadUsers();
@@ -105,17 +105,30 @@ namespace Shared.Classes
                 return new List<User>();
             }
 
-            var json = File.ReadAllText(_usersPath);
-            var settings = new JsonSerializerSettings
+            using (var reader = new StreamReader(_usersPath))
             {
-                Converters = new List<JsonConverter> { new UserConverter() }
-            };
-            return JsonConvert.DeserializeObject<List<User>>(json, settings) ?? new List<User>();
+                var json = reader.ReadToEnd();
+                var settings = new JsonSerializerSettings
+                {
+                    Converters = new List<JsonConverter> { new UserConverter() }
+                };
+                return JsonConvert.DeserializeObject<List<User>>(json, settings) ?? new List<User>();
+            }
         }
         private void SaveUsers(List<User> users)
         {
-            var json = JsonConvert.SerializeObject(users, Formatting.Indented);
-            File.WriteAllText(_usersPath, json);
+            try
+            {
+                using (var writer = new StreamWriter(_usersPath))
+                {
+                    var json = JsonConvert.SerializeObject(users, Formatting.Indented);
+                    writer.Write(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
         }
 
         public User? GetUser()
