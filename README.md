@@ -34,10 +34,15 @@ Currently, the project has the following features:
 - Basic error and exception handling.
 - Data exchange between client and server using JSON.
 
+## Tests
+
+Currently, there are 3 services implementing the IMessageService, IUserManagementService, ICommunicationService interfaces, which have been implemented in the main server class thanks to the use of dependency injection.
+Thanks to the appliance of the Dependency Inversion in the solution, code can be easily tested. 
+
+
 ## Potential Extensions
 
 Some potential functionalities to add to this project include:
 - Handling multiple clients concurrently through multi-threading or asynchronous I/O.
-- Expanding the list of available commands with new features such as file transfer, user management, etc.
 - Adding event and error logging to a file for better debugging and application monitoring.
 - Implementing a graphical user interface (GUI) for the client and/or server to facilitate user interaction with the application.
