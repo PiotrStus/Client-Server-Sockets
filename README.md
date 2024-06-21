@@ -36,7 +36,7 @@ Currently, the project has the following features:
 
 ## Tests
 
-Currently, there are 3 services implementing the IMessageService, IUserManagementService, ICommunicationService interfaces, which have been implemented in the main server class thanks to the use of dependency injection.
+Currently, there are 3 services implementing the IMessageService, IUserManagementService, ICommunicationService interfaces, which have been implemented in the main server class.
 Thanks to the appliance of the Dependency Inversion in the solution, code can be easily tested. 
 
 
