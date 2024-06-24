@@ -14,7 +14,7 @@ namespace Client
 {
     public class Client
     {
-        private static bool exchangeOn = true;
+        private static bool _exchangeOn = true;
         private readonly ICommunicationService _communicationService;
         public Client(ICommunicationService communicationService)
         {
@@ -28,7 +28,7 @@ namespace Client
                 var request1 = JsonConvert.DeserializeObject<string>(data);
 
                 Console.WriteLine("New message from Server: \n\n{0}", request1);
-                while (exchangeOn)
+                while (_exchangeOn)
                 {
                     Console.Write("\nEnter a new command: ");
                     string command = Console.ReadLine()!;
@@ -51,153 +51,171 @@ namespace Client
                 Console.WriteLine("Can't establish connection to the server: " + ex.ToString());
             }
         }
-        static void HandleResponse(string newMessage, string command, ICommunicationService communicationService)
+
+        private void HandleInfo(string newMessage)
+        {
+            var infoResponse = JsonConvert.DeserializeObject<InfoResponse>(newMessage);
+            CommunicationMessages.ShowInfo(infoResponse.Message, infoResponse.ServerCreated, infoResponse.ServerVersion);
+        }
+
+        private string GetUserInput()
+        {
+            return Console.ReadLine()!;
+        }
+
+        private string CreateRequest(string command)
+        {
+            return JsonConvert.SerializeObject(new Request { Command = command });
+        }
+
+        private T ReceiveAndDeserialize<T>()
+        {
+            string messageReceived = _communicationService.ReceiveRequest();
+            return JsonConvert.DeserializeObject<T>(messageReceived);
+        }
+
+        private void HandleRegister(string newMessage)
+        {
+            var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(loginResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var passwordResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(passwordResponse.Command);
+
+            userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var userCreated = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(userCreated.Command);
+
+        }
+
+        private void HandleLogin(string newMessage)
+        {
+            var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(loginResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var passwordResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(passwordResponse.Command);
+
+            userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var loginStatus = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(loginStatus.Command);
+        }
+
+        private void HandleLogout(string newMessage)
+        {
+            var logoutResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLogout(logoutResponse.Command);
+        }
+
+        private void HandleDelete(string newMessage)
+        {
+            var deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(deleteResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            deleteResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(deleteResponse.Command);
+        }
+
+        private void HandleUptime(string newMessage)
+        {
+            var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
+            CommunicationMessages.ShowUptime(uptimeResponse.Message, uptimeResponse.UpTime);
+        }
+
+        private void HandleHelp(string newMessage)
+        {
+            var helpResponse = JsonConvert.DeserializeObject<HelpResponse>(newMessage);
+            CommunicationMessages.ShowHelp(helpResponse.Message, helpResponse.Commands);
+        }
+
+        private void HandleMessage(string newMessage)
+        {
+            var messageResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(messageResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            messageResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(messageResponse.Command);
+
+            userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            messageResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(messageResponse.Command);
+        }
+
+        private void HandleMailbox(string newMessage)
+        {
+            var mailboxResponse = JsonConvert.DeserializeObject<MailsResponse>(newMessage);
+            CommunicationMessages.ShowMailbox(mailboxResponse.Message, mailboxResponse.Mails);
+        }
+
+        private void HandleUsers(string newMessage)
+        {
+            var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
+            CommunicationMessages.ShowUsers(usersResponse.Message, usersResponse.Users);
+        }
+
+        private void HandleDefault(string newMessage)
+        {
+            var wrongResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(wrongResponse.Command);
+        }
+
+        public void HandleResponse(string newMessage, string command, ICommunicationService communicationService)
         {
             switch (command)
             {
                 case "info":
-                    var infoResponse = JsonConvert.DeserializeObject<InfoResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                 " + infoResponse.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    Console.WriteLine($"Server's creation date&time: {infoResponse.ServerCreated}");
-                    Console.WriteLine($"Server's version: {infoResponse.ServerVersion}");
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
+                    HandleInfo(newMessage);
                     break;
                 case "register":
-                    var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(loginResponse.Command);
-                    string userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    string messageReceived = communicationService.ReceiveRequest();
-                    var passwordResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(passwordResponse.Command);
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    messageReceived = communicationService.ReceiveRequest();
-                    var userCreated = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(userCreated.Command);
+                    HandleRegister(newMessage);
                     break;
                 case "login":
-                    loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(loginResponse.Command);
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    messageReceived = communicationService.ReceiveRequest();
-                    passwordResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(passwordResponse.Command);
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    messageReceived = communicationService.ReceiveRequest();
-                    var loginStatus = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(loginStatus.Command);
+                    HandleLogin(newMessage);
                     break;
                 case "logout":
-                    var logoutResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("             " + logoutResponse.Command);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
+                    HandleLogout(newMessage);
                     break;
                 case "delete":
-                    //fetching data from server
-                    var deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(deleteResponse.Command);
-                    // user's input data and send to server
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    // accept/reject response from server
-                    messageReceived = communicationService.ReceiveRequest();
-                    deleteResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(deleteResponse.Command);
+                    HandleDelete(newMessage);
                     break;
                 case "uptime":
-                    var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("              " + uptimeResponse.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    Console.WriteLine($"                        {uptimeResponse.UpTime}");
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
+                    HandleUptime(newMessage);
                     break;
                 case "help":
-                    var helpResponse = JsonConvert.DeserializeObject<HelpResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                  " + helpResponse?.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    foreach (var availableCommand in helpResponse?.Commands)
-                    {
-                        Console.WriteLine($"          {availableCommand}");
-                    }
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
+                    HandleHelp(newMessage);
                     break;
                 case "message":
-                    // request to provide the recipient
-                    var messageResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(messageResponse.Command);
-
-                    // sending the recipient
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-
-                    // prosba o podanie wiadomosci
-                    messageReceived = communicationService.ReceiveRequest();
-                    messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.WriteLine(messageResponse.Command);
-
-                    // request for a message
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-
-                    // information about the message status
-                    messageReceived = communicationService.ReceiveRequest();
-                    messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.WriteLine(messageResponse.Command);
+                    HandleMessage(newMessage);
                     break;
                 case "mailbox":
-                    // messages receive
-                    var mailboxResponse = JsonConvert.DeserializeObject<MailsResponse>(newMessage);
-                    Console.WriteLine(mailboxResponse.Message);
-                    if (mailboxResponse.Mails.Count > 0)
-                    {
-                        foreach (var message in mailboxResponse.Mails)
-                        {
-                            Console.WriteLine(message);
-                        }
-                    }
-                    else
-                        Console.WriteLine("Your mailbox is empty.");
+                    HandleMailbox(newMessage);
                     break;
                 case "stop":
-                    exchangeOn = false;
+                    _exchangeOn = false;
                     break;
                 case "users":
-                    var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                  " + usersResponse?.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    foreach (var user in usersResponse?.Users)
-                    {
-                        Console.WriteLine($"{user} ");
-                    }
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
+                    HandleUsers(newMessage);
                     break;
                 default:
-                    var wrongResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(wrongResponse.Command);
+                    HandleDefault(newMessage);
                     break;
             }
         }
