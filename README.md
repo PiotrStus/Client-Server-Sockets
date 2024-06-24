@@ -1,11 +1,11 @@
 # Server-Client application
 
-This project contains a simple server and client implementation written in C# using TCP/IP sockets. The server allows the client to send simple commands, to which it responds according to the data implemented in the code. This is a sample project that can be further developed and expanded with new functionalities.
+This project contains a simple server and client implementation written in C# using TCP/IP sockets. 
+The server allows the client to send simple commands, to which it responds according to the data implemented in the code. The server and client exchange information using JSON.
 
 ## Video
 
-[![Alt text for your video](http://img.youtube.com/vi/-J5Yr98vHas/0.jpg)](http://www.youtube.com/watch?v=-J5Yr98vHas)
-
+[![Alt text for your video](http://img.youtube.com/vi/Al10hUIZXU8/0.jpg)](http://www.youtube.com/watch?v=Al10hUIZXU8)
 
 ## How to Run
 
@@ -17,14 +17,32 @@ This project contains a simple server and client implementation written in C# us
 ## Features
 
 Currently, the project has the following features:
-- Command handling: `help`, `info`, `uptime`, `stop`.
-- Sending simple server responses to client queries.
+- Command handling:
+1. `help` - list of available commands,
+2. `info` - server version & creation date,
+3.  `uptime` - server's lifetime,
+4.  `stop` - stops server and the client,
+5.  `login` - login user,
+6.  `register` - register user
+- Additional commands for a normal user:
+1.  `logout` - logout user,
+2.  `message` - send a message,
+3.  `mailbox` - check your mailbox
+- Additional commands for the admin user:
+1. `delete` - delete a user.
+- Sending simple server responses to client requests.
 - Basic error and exception handling.
+- Data exchange between client and server using JSON.
+
+## Tests
+
+Currently, there are 3 services implementing the IMessageService, IUserManagementService, ICommunicationService interfaces, which have been implemented in the main server class.
+Thanks to the appliance of the Dependency Inversion in the solution, code can be easily tested. 
+
 
 ## Potential Extensions
 
 Some potential functionalities to add to this project include:
 - Handling multiple clients concurrently through multi-threading or asynchronous I/O.
-- Expanding the list of available commands with new features such as file transfer, user management, etc.
 - Adding event and error logging to a file for better debugging and application monitoring.
 - Implementing a graphical user interface (GUI) for the client and/or server to facilitate user interaction with the application.

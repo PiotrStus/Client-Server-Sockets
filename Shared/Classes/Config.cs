@@ -12,6 +12,6 @@ namespace Shared.Classes
         public static IPAddress IpAddr { get; } = IPAddress.Parse("127.0.0.1");
         public static IPEndPoint LocalEndPoint { get; } = new(IpAddr, 9013);
 
-        public static string ServerVersion { get; } = "0.1.1";
+        public static string ServerVersion { get; } = "0.2.0";
     }
 }
