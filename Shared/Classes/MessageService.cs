@@ -13,17 +13,19 @@ namespace Shared.Classes
         private Dictionary<string, List<Message>> usersMessages = new Dictionary<string, List<Message>>();
         private IUserManagementService _userManagementService;
         private string _messagesPath;
+        private MessageValidator _messageValidator;
         public MessageService(IUserManagementService userManagementService, string messagesPath)
         {
             _userManagementService = userManagementService;
             _messagesPath = messagesPath;
             usersMessages = LoadMessages();
+            _messageValidator = new MessageValidator(_userManagementService, usersMessages);
         }
         public List<Message> GetMessages()
         {
             var currentUser = _userManagementService.GetUser();
             List<Message> messages = new List<Message>();
-            if (!ValidateRecipient(currentUser.Login))
+            if (!_messageValidator.ValidateRecipient(currentUser.Login))
                 return messages;
             if (usersMessages.ContainsKey(currentUser.Login))
                 messages = usersMessages[currentUser.Login];
@@ -33,11 +35,12 @@ namespace Shared.Classes
         {
             LoadMessages();
             var currentUser = _userManagementService.GetUser();
-            if (!ValidateRecipient(recipient))
+
+            if (!_messageValidator.ValidateRecipient(recipient))
                 return $"Sending failed. User {recipient} doesn't exist.";
-            if (!ValidateMessage(message))
+            if (!_messageValidator.ValidateMessage(message))
                 return $"Sending failed. Message is too long.";
-            if (!CheckFullMailbox(recipient))
+            if (!_messageValidator.CheckFullMailbox(usersMessages, recipient))
                 return $"Sending failed. Mailbox is full.";
             Message singleUserMessages = new Message(currentUser.Login, message);
             var userExistInMailbox = false;
@@ -58,24 +61,6 @@ namespace Shared.Classes
             }
             SaveMessages(usersMessages);
             return $"Message has been sent to {recipient}.";
-        }
-        private bool ValidateRecipient(string recipient)
-        {
-            var users = _userManagementService.GetAllUsers();
-            foreach (var user in users)
-            {
-                if (user.Login == recipient)
-                    return true;
-            }
-            return false;
-        }
-        private bool ValidateMessage(string message)
-        {
-            if (message.Length > 255)
-            {
-                return false;
-            }
-            return true;
         }
         private Dictionary<string, List<Message>> LoadMessages()
         {
@@ -110,14 +95,6 @@ namespace Shared.Classes
                 Console.WriteLine(ex.ToString());
             }
         }
-        private bool CheckFullMailbox(string name)
-        {
-            if (usersMessages.ContainsKey(name))
-            {
-                if (usersMessages[name].Count >= 5)
-                    return false;
-            }
-            return true;
-        }
+
     }
 }
