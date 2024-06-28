@@ -10,7 +10,7 @@ using Newtonsoft.Json.Linq;
 using Shared.Classes.Shared.Classes;
 
 
-namespace Shared.Classes
+namespace Shared.Classes.Converters
 {
     public abstract class JsonCreationConverter<T> : JsonConverter
     {
@@ -49,7 +49,7 @@ namespace Shared.Classes
         {
             try
             {
-                Constants.UserTypes userType = ((Constants.UserTypes)jObject["Type"].Value<int>());
+                Constants.UserTypes userType = (Constants.UserTypes)jObject["Type"].Value<int>();
                 string login = jObject["Login"].Value<string>();
                 string password = jObject["Password"].Value<string>();
                 switch (userType)

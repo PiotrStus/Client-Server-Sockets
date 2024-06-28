@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 
-namespace Shared.Classes
+namespace Shared.Classes.Services
 {
     public class SocketCommunicationService : ICommunicationService
     {

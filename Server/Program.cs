@@ -1,10 +1,13 @@
 ﻿using Shared.Classes;
 using Shared.Interfaces;
+using Shared.Classes.Services;
+using Shared.Classes.Repositories.FileType;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Shared.Classes;
 
 namespace Server
 {
@@ -23,10 +26,13 @@ namespace Server
                 var communicationService = new SocketCommunicationService(clientSocket);
                 var usersPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
                 var messagesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/messages.json");
+                var userRepositoryFile = new UserFileRepository(usersPath);
+                var messageRepositoryFile = new MessageFileRepository(messagesPath);
 
 
-                IUserManagementService userManagementService = new UserManagementService(usersPath);
-                IMessageService messageService = new MessageService(userManagementService, messagesPath);
+                IUserManagementService userManagementService = new UserManagementService(userRepositoryFile);
+
+                IMessageService messageService = new MessageService(userManagementService, messageRepositoryFile);
 
                 Server server = new Server(communicationService, userManagementService, messageService);
                 server.Start();

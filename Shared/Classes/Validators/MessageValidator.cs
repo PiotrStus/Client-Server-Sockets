@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Shared.Classes
+namespace Shared.Classes.Validators
 {
     public class MessageValidator
     {
