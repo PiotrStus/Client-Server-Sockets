@@ -13,6 +13,7 @@ using Shared.Responses;
 using Shared.Classes.Shared.Classes;
 using Shared.Interfaces;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using Server.ServerHandlers;
 
 
 namespace Server
@@ -22,6 +23,9 @@ namespace Server
         private readonly ICommunicationService _communicationService;
         private readonly IUserManagementService _userManagementService;
         private readonly IMessageService _messageService;
+        private readonly CommandHandler _commandHandler;
+        private readonly Dictionary<string, Action> commandDictionary = new Dictionary<string, Action>();
+
         private static DateTime ServerCreationDate { get; set; }
         private static bool communicationOn = true;
         private static bool dataExchange = true;
@@ -35,6 +39,8 @@ namespace Server
             _userManagementService = userManagementService;
             _messageService = messageService;
             ServerCreationDate = DateTime.Now;
+            _commandHandler = new CommandHandler(communicationService, userManagementService, messageService, ServerCreationDate, communicationOn, dataExchange);
+            InitializeCommandDictionary();
         }
         public void Start()
         {
@@ -47,68 +53,14 @@ namespace Server
                     {
                         string data = _communicationService.ReceiveRequest();
                         var request = JsonConvert.DeserializeObject<Request>(data);
-                        switch (request.Command.ToLower())
+
+                        if (commandDictionary.ContainsKey(request.Command.ToLower()))
                         {
-                            case "help":
-                                {
-                                    HelpCommand();
-                                    break;
-                                }
-                            case "info":
-                                {
-                                    InfoCommand();
-                                    break;
-                                }
-                            case "uptime":
-                                {
-                                    UpTimeCommand();
-                                    break;
-                                }
-                            case "stop":
-                                {
-                                    StopCommand();
-                                    break;
-                                }
-                            case "register":
-                                {
-                                    RegisterCommand();
-                                    break;
-                                }
-                            case "login":
-                                {
-                                    LoginCommand();
-                                    break;
-                                }
-                            case "logout":
-                                {
-                                    LogoutCommand();
-                                    break;
-                                }
-                            case "users":
-                                {
-                                    UsersCommand();
-                                    break;
-                                }
-                            case "delete":
-                                {
-                                    DeleteCommand();
-                                    break;
-                                }
-                            case "message":
-                                {
-                                    SendMessageCommand();
-                                    break;
-                                }
-                            case "mailbox":
-                                {
-                                    GetMessageCommand();
-                                    break;
-                                }
-                            default:
-                                {
-                                    WrongCommand();
-                                    break;
-                                }
+                            commandDictionary[request.Command.ToLower()].Invoke();
+                        }
+                        else
+                        {
+                            _commandHandler.WrongCommand();
                         }
                     }
                 }
@@ -119,196 +71,20 @@ namespace Server
                 Console.WriteLine(ex.StackTrace);
             }
         }
-        private void UpTimeCommand()
+
+        private void InitializeCommandDictionary()
         {
-            var upTime = new UptimeResponse
-            {
-                Message = "Server's uptime [hh:mm:ss]",
-                UpTime = (DateTime.Now.TimeOfDay - ServerCreationDate.TimeOfDay).ToString(@"hh\:mm\:ss")
-            };
-            _communicationService.SendResponse(JsonConvert.SerializeObject(upTime));
-        }
-        private void StopCommand()
-        {
-            try
-            {
-                var stop = new Request
-                {
-                    Command = "stop"
-                };
-                _communicationService.SendResponse(JsonConvert.SerializeObject(stop));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            finally
-            {
-                communicationOn = false;
-                dataExchange = false;
-            }
-        }
-        private void InfoCommand()
-        {
-            var infoResponse = new InfoResponse
-            {
-                Message = "Server's informations",
-                ServerCreated = ServerCreationDate,
-                ServerVersion = Config.ServerVersion,
-            };
-            _communicationService.SendResponse(JsonConvert.SerializeObject(infoResponse));
-        }
-        private void HelpCommand()
-        {
-            var helpMessage = new HelpResponse
-            {
-                Message = "Available commands:",
-                Commands = new List<string>
-                {
-                    "help - list of available commands",
-                    "info - server's version&creation date",
-                    "uptime - server's lifetime",
-                    "register - register a new user",
-                    "stop - stops server and the client"
-                }
-            };
-
-            if (_userManagementService.GetUser() != null)
-            {
-                helpMessage.Commands.Add("logout - user logout");
-                helpMessage.Commands.Add("message - send a message");
-                helpMessage.Commands.Add("mailbox - check your mailbox");
-                helpMessage.Commands.Add("message - send a message");
-            }
-            else
-                helpMessage.Commands.Add("login - login an user");
-            if (_userManagementService.IsAdmin())
-            {
-                helpMessage.Commands.Add("users - list of registered users");
-                helpMessage.Commands.Add("delete - delete an user");
-            }
-            _communicationService.SendResponse(JsonConvert.SerializeObject(helpMessage));
-        }
-        private void RegisterCommand()
-        {
-            string loginRequest = "Please type your login:";
-            string passwordRequest = "Please type your password:";
-
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = loginRequest }));
-
-            string data = _communicationService.ReceiveRequest();
-            var loginData = JsonConvert.DeserializeObject<Request>(data);
-
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = passwordRequest }));
-
-            data = _communicationService.ReceiveRequest();
-            var passwordData = JsonConvert.DeserializeObject<Request>(data);
-
-            string registrationResult = _userManagementService.RegisterUser(loginData.Command, passwordData.Command);
-
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = registrationResult }));
-        }
-        private void UsersCommand()
-        {
-            if (!_userManagementService.IsAdmin())
-            {
-                var response = new UsersResponse
-                {
-                    Message = "Access denied. Only admins can list users.",
-                    Users = new List<string>()
-                };
-                _communicationService.SendResponse(JsonConvert.SerializeObject(response));
-                return;
-            }
-            var users = _userManagementService.GetAllUsers();
-            List<string> userNames = users.Select(user => user.Login).ToList();
-            var userMessage = new UsersResponse
-            {
-                Message = "Available users",
-                Users = userNames
-            };
-            _communicationService.SendResponse(JsonConvert.SerializeObject(userMessage));
-
-        }
-        private void LoginCommand()
-        {
-            string loginRequest = "Please type your login:";
-            string passwordRequest = "Please type your password:";
-
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = loginRequest }));
-
-            string data = _communicationService.ReceiveRequest();
-            var loginData = JsonConvert.DeserializeObject<Request>(data);
-
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = passwordRequest }));
-
-
-            data = _communicationService.ReceiveRequest();
-            var passwordData = JsonConvert.DeserializeObject<Request>(data);
-
-            var user = _userManagementService.LoginUser(loginData.Command, passwordData.Command);
-
-            if (user != null)
-            {
-                _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = $"{loginData.Command} logged in" }));
-            }
-            else
-                _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Wrong credantials!" }));
-        }
-        private void LogoutCommand()
-        {
-            var response = _userManagementService.LogoutUser();
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = response }));
-        }
-        private void DeleteCommand()
-        {
-            var deleteRequest = new Request { Command = "Which user do you want to delete? " };
-            _communicationService.SendResponse(JsonConvert.SerializeObject(deleteRequest));
-
-            var data = _communicationService.ReceiveRequest();
-            var userToDelete = JsonConvert.DeserializeObject<Request>(data);
-            var deleteResponse = _userManagementService.DeleteUser(userToDelete.Command);
-
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = deleteResponse }));
-        }
-        private void SendMessageCommand()
-        {
-            // request for indication of recipient
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Who do you want to send a message to?" }));
-
-            // receiving the recipient
-            var data = _communicationService.ReceiveRequest();
-            var messageRecipient = JsonConvert.DeserializeObject<Request>(data);
-
-            // prosba o podanie wiadomosci
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter your message" }));
-
-            // request for a message
-            data = _communicationService.ReceiveRequest();
-            var message = JsonConvert.DeserializeObject<Request>(data);
-
-
-            // message validation
-            var messageStatus = _messageService.SendMessage(messageRecipient.Command, message.Command);
-            //_messageService.Test();
-
-            // sending a reply
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = messageStatus }));
-        }
-        private void GetMessageCommand()
-        {
-            // sending a reply
-            var mails = _messageService.GetMessages();
-            var mailsResponse = new MailsResponse
-            {
-                Message = "Mailbox: ",
-                Mails = mails
-            };
-            _communicationService.SendResponse(JsonConvert.SerializeObject(mailsResponse));
-        }
-        private void WrongCommand()
-        {
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter a valid command! Type help for the command list." }));
+            commandDictionary["help"] = _commandHandler.HelpCommand;
+            commandDictionary["info"] = _commandHandler.InfoCommand;
+            commandDictionary["uptime"] = _commandHandler.UpTimeCommand;
+            commandDictionary["stop"] = _commandHandler.StopCommand;
+            commandDictionary["register"] = _commandHandler.RegisterCommand;
+            commandDictionary["login"] = _commandHandler.LoginCommand;
+            commandDictionary["logout"] = _commandHandler.LogoutCommand;
+            commandDictionary["users"] = _commandHandler.UsersCommand;
+            commandDictionary["delete"] = _commandHandler.DeleteCommand;
+            commandDictionary["message"] = _commandHandler.SendMessageCommand;
+            commandDictionary["mailbox"] = _commandHandler.GetMessageCommand;
         }
     }
 }

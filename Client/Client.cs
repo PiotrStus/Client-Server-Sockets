@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Client.Handlers;
+using Newtonsoft.Json;
 using Shared.Interfaces;
 using Shared.Requests;
 using Shared.Responses;
@@ -16,9 +17,32 @@ namespace Client
     {
         private static bool _exchangeOn = true;
         private readonly ICommunicationService _communicationService;
+
+        public delegate void ResponseHandlerDelegate(string newMessage);
+        private readonly Dictionary<string, ResponseHandlerDelegate> _responseHandlers;
+        private readonly ResponseHandler _responseHandler;
+
         public Client(ICommunicationService communicationService)
         {
             _communicationService = communicationService;
+
+            _responseHandler = new ResponseHandler(communicationService);
+
+            _responseHandlers = new Dictionary<string, ResponseHandlerDelegate>
+            {
+                {"info", _responseHandler.HandleInfo },
+                {"register", _responseHandler.HandleRegister },
+                {"login", _responseHandler.HandleLogin },
+                {"logout", _responseHandler.HandleLogout },
+                { "delete", _responseHandler.HandleDelete },
+                { "uptime", _responseHandler.HandleUptime },
+                { "help", _responseHandler.HandleHelp },
+                { "message", _responseHandler.HandleMessage },
+                { "mailbox", _responseHandler.HandleMailbox },
+                { "users", _responseHandler.HandleUsers },
+                { "stop", (msg) => _exchangeOn = false }, 
+                { "default", _responseHandler.HandleDefault }
+            };
         }
         public void Start()
         {
@@ -37,7 +61,7 @@ namespace Client
                         Console.Clear();
                         _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = command }));
                         string newMessage = _communicationService.ReceiveRequest();
-                        HandleResponse(newMessage, command, _communicationService);
+                        HandleResponse(newMessage, command);
                     }
                     else
                     {
@@ -52,171 +76,17 @@ namespace Client
             }
         }
 
-        private void HandleInfo(string newMessage)
+        
+
+        public void HandleResponse(string newMessage, string command)
         {
-            var infoResponse = JsonConvert.DeserializeObject<InfoResponse>(newMessage);
-            CommunicationMessages.ShowInfo(infoResponse.Message, infoResponse.ServerCreated, infoResponse.ServerVersion);
-        }
-
-        private string GetUserInput()
-        {
-            return Console.ReadLine()!;
-        }
-
-        private string CreateRequest(string command)
-        {
-            return JsonConvert.SerializeObject(new Request { Command = command });
-        }
-
-        private T ReceiveAndDeserialize<T>()
-        {
-            string messageReceived = _communicationService.ReceiveRequest();
-            return JsonConvert.DeserializeObject<T>(messageReceived);
-        }
-
-        private void HandleRegister(string newMessage)
-        {
-            var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-            CommunicationMessages.ShowLine(loginResponse.Command);
-
-            string userInput = GetUserInput();
-            _communicationService.SendResponse(CreateRequest(userInput));
-
-            var passwordResponse = ReceiveAndDeserialize<Request>();
-            CommunicationMessages.ShowLine(passwordResponse.Command);
-
-            userInput = GetUserInput();
-            _communicationService.SendResponse(CreateRequest(userInput));
-
-            var userCreated = ReceiveAndDeserialize<Request>();
-            CommunicationMessages.ShowLine(userCreated.Command);
-
-        }
-
-        private void HandleLogin(string newMessage)
-        {
-            var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-            CommunicationMessages.ShowLine(loginResponse.Command);
-
-            string userInput = GetUserInput();
-            _communicationService.SendResponse(CreateRequest(userInput));
-
-            var passwordResponse = ReceiveAndDeserialize<Request>();
-            CommunicationMessages.ShowLine(passwordResponse.Command);
-
-            userInput = GetUserInput();
-            _communicationService.SendResponse(CreateRequest(userInput));
-
-            var loginStatus = ReceiveAndDeserialize<Request>();
-            CommunicationMessages.ShowLine(loginStatus.Command);
-        }
-
-        private void HandleLogout(string newMessage)
-        {
-            var logoutResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-            CommunicationMessages.ShowLogout(logoutResponse.Command);
-        }
-
-        private void HandleDelete(string newMessage)
-        {
-            var deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-            CommunicationMessages.ShowLine(deleteResponse.Command);
-
-            string userInput = GetUserInput();
-            _communicationService.SendResponse(CreateRequest(userInput));
-
-            deleteResponse = ReceiveAndDeserialize<Request>();
-            CommunicationMessages.ShowLine(deleteResponse.Command);
-        }
-
-        private void HandleUptime(string newMessage)
-        {
-            var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
-            CommunicationMessages.ShowUptime(uptimeResponse.Message, uptimeResponse.UpTime);
-        }
-
-        private void HandleHelp(string newMessage)
-        {
-            var helpResponse = JsonConvert.DeserializeObject<HelpResponse>(newMessage);
-            CommunicationMessages.ShowHelp(helpResponse.Message, helpResponse.Commands);
-        }
-
-        private void HandleMessage(string newMessage)
-        {
-            var messageResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-            CommunicationMessages.ShowLine(messageResponse.Command);
-
-            string userInput = GetUserInput();
-            _communicationService.SendResponse(CreateRequest(userInput));
-
-            messageResponse = ReceiveAndDeserialize<Request>();
-            CommunicationMessages.ShowLine(messageResponse.Command);
-
-            userInput = GetUserInput();
-            _communicationService.SendResponse(CreateRequest(userInput));
-
-            messageResponse = ReceiveAndDeserialize<Request>();
-            CommunicationMessages.ShowLine(messageResponse.Command);
-        }
-
-        private void HandleMailbox(string newMessage)
-        {
-            var mailboxResponse = JsonConvert.DeserializeObject<MailsResponse>(newMessage);
-            CommunicationMessages.ShowMailbox(mailboxResponse.Message, mailboxResponse.Mails);
-        }
-
-        private void HandleUsers(string newMessage)
-        {
-            var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
-            CommunicationMessages.ShowUsers(usersResponse.Message, usersResponse.Users);
-        }
-
-        private void HandleDefault(string newMessage)
-        {
-            var wrongResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-            CommunicationMessages.ShowLine(wrongResponse.Command);
-        }
-
-        public void HandleResponse(string newMessage, string command, ICommunicationService communicationService)
-        {
-            switch (command)
+            if(_responseHandlers.TryGetValue(command, out ResponseHandlerDelegate handler))
             {
-                case "info":
-                    HandleInfo(newMessage);
-                    break;
-                case "register":
-                    HandleRegister(newMessage);
-                    break;
-                case "login":
-                    HandleLogin(newMessage);
-                    break;
-                case "logout":
-                    HandleLogout(newMessage);
-                    break;
-                case "delete":
-                    HandleDelete(newMessage);
-                    break;
-                case "uptime":
-                    HandleUptime(newMessage);
-                    break;
-                case "help":
-                    HandleHelp(newMessage);
-                    break;
-                case "message":
-                    HandleMessage(newMessage);
-                    break;
-                case "mailbox":
-                    HandleMailbox(newMessage);
-                    break;
-                case "stop":
-                    _exchangeOn = false;
-                    break;
-                case "users":
-                    HandleUsers(newMessage);
-                    break;
-                default:
-                    HandleDefault(newMessage);
-                    break;
+                handler(newMessage);
+            }
+            else
+            {
+                _responseHandler.HandleDefault(newMessage);
             }
         }
     }
