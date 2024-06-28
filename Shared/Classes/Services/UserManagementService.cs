@@ -22,7 +22,6 @@ namespace Shared.Classes.Services
             _userRepository = userRepository;
             var x = RegisterAdmin("admin", "admin123");
         }
-
         public string DeleteUser(string login)
         {
             var user = _userRepository.GetUser(login);
@@ -82,7 +81,6 @@ namespace Shared.Classes.Services
             _userRepository.AddUser(user);
             return $"Admin: {login} has been created.";
         }
-
         public User? GetUser()
         {
             return CurrentUser;

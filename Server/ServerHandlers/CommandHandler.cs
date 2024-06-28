@@ -183,7 +183,7 @@ namespace Server.ServerHandlers
         public void GetMessageCommand()
         {
             // sending a reply
-            var mails = _messageService.GetMessages();
+            var mails = _messageService.GetUserMessages();
             var mailsResponse = new MailsResponse
             {
                 Message = "Mailbox: ",

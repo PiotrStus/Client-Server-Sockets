@@ -24,7 +24,7 @@ namespace Shared.Classes.Services
             usersMessages = _messageRepository.GetAllMesasges();
             _messageValidator = new MessageValidator(_userManagementService, usersMessages);
         }
-        public List<Message> GetMessages()
+        public List<Message> GetUserMessages()
         {
             var currentUser = _userManagementService.GetUser();
             List<Message> messages = new List<Message>();
@@ -60,7 +60,5 @@ namespace Shared.Classes.Services
             _messageRepository.SaveMessages(usersMessages);
             return $"Message has been sent to {recipient}.";
         }
-
-
     }
 }
