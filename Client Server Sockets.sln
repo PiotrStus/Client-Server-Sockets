@@ -10,6 +10,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shared", "Shared\Shared.csproj", "{F0E76844-23A2-4104-B83B-254BF1D1B342}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests", "Tests\Tests.csproj", "{BBE99968-B1FF-42B9-AC1B-0E04DAD8CFD2}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2BA329C6-1FF3-44FF-8D53-6F84FAA969C0} = {2BA329C6-1FF3-44FF-8D53-6F84FAA969C0}
+		{84AA775C-F0DB-4584-B13B-95CE777309D8} = {84AA775C-F0DB-4584-B13B-95CE777309D8}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

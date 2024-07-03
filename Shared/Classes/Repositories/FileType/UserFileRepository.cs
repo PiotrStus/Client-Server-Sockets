@@ -22,7 +22,10 @@ namespace Shared.Classes.Repositories.FileType
         public void AddUser(User user)
         {
             var users = LoadUsers();
-            users.Add(user);
+            if (users.All(u => u.Login != user.Login))
+            {
+                users.Add(user);
+            }
             SaveUsers(users);
         }
 

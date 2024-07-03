@@ -1,6 +1,9 @@
 ﻿using Moq;
+using Shared.Classes;
 using Shared.Classes.Repositories.FileType;
 using Shared.Classes.Services;
+using Shared.Classes.Shared.Classes;
+using Shared.Interfaces;
 using Shared.Interfaces.Repository;
 using System;
 using System.Collections.Generic;
@@ -58,5 +61,79 @@ namespace Tests
             // Assert
             Assert.Contains("User already exists", result);
         }
+
+        [Fact]
+        public void LoginUserWithValidCredentialsShouldLoginSuccessfully()
+        {
+            // Arrange
+            var login = "testuser";
+            var password = "testpassword";
+
+            var mockUserRepository = new Mock<IUserRepository>();
+
+            mockUserRepository.Setup(repo => repo.GetUser(login))
+                              .Returns(new RegularUser("testuser", "testpassword"));
+
+            var userService = new UserManagementService(mockUserRepository.Object);
+
+            // Act
+            var result = userService.LoginUser(login, password);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(login, result.Login);
+            Assert.Equal(password, result.Password);
+
+        }
+
+        [Fact]
+        public void LoginUserWithInvalidCredentialsShouldNotLoginSuccessfully()
+        {
+            // Arrange
+            var login = "testuser";
+            var password = "testpassword";
+
+            var mockUserRepository = new Mock<IUserRepository>();
+
+            mockUserRepository.Setup(repo => repo.GetUser(login))
+                              .Returns(new RegularUser("testuser", "testpassword1"));
+
+            var userService = new UserManagementService(mockUserRepository.Object);
+
+            // Act
+            var result = userService.LoginUser(login, password);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+
+        public void LoginAdminShouldReturnTypeAdmin()
+        {
+            // Arrange
+
+            var login = "admin";
+            var password = "admin123";
+
+            var mockUserRepository = new Mock<IUserRepository>();
+
+            mockUserRepository.Setup(repo => repo.GetUser(login))
+                              .Returns(new AdminUser("admin", "admin123"));
+
+            var userService = new UserManagementService(mockUserRepository.Object);
+
+
+            // Act
+            
+            var result = userService.LoginUser(login, password);
+
+            // Assert
+
+            Assert.Equal("Admin", result.Type.ToString());
+
+        }
+
+
     }
 }
