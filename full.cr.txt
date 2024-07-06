@@ -1,7 +1,159 @@
 ====================
-NAMESPACE: Client
 FILE: Client\Program.cs
 
+using Shared.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Shared.Responses;
+using Shared.Requests;
+
+namespace Client.Handlers
+{
+    public class ResponseHandler
+    {
+        private readonly ICommunicationService _communicationService;
+        public ResponseHandler(ICommunicationService communicationService)
+        {
+            _communicationService = communicationService;
+        }
+
+        public void HandleInfo(string newMessage)
+        {
+            var infoResponse = JsonConvert.DeserializeObject<InfoResponse>(newMessage);
+            CommunicationMessages.ShowInfo(infoResponse.Message, infoResponse.ServerCreated, infoResponse.ServerVersion);
+        }
+
+        private string GetUserInput()
+        {
+            return Console.ReadLine()!;
+        }
+
+        private string CreateRequest(string command)
+        {
+            return JsonConvert.SerializeObject(new Request { Command = command });
+        }
+
+        private T ReceiveAndDeserialize<T>()
+        {
+            string messageReceived = _communicationService.ReceiveRequest();
+            return JsonConvert.DeserializeObject<T>(messageReceived);
+        }
+
+        public void HandleRegister(string newMessage)
+        {
+            var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(loginResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var passwordResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(passwordResponse.Command);
+
+            userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var userCreated = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(userCreated.Command);
+
+        }
+
+        public void HandleLogin(string newMessage)
+        {
+            var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(loginResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var passwordResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(passwordResponse.Command);
+
+            userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            var loginStatus = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(loginStatus.Command);
+        }
+
+        public void HandleLogout(string newMessage)
+        {
+            var logoutResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLogout(logoutResponse.Command);
+        }
+
+        public void HandleDelete(string newMessage)
+        {
+            var deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(deleteResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            deleteResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(deleteResponse.Command);
+        }
+
+        public void HandleUptime(string newMessage)
+        {
+            var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
+            CommunicationMessages.ShowUptime(uptimeResponse.Message, uptimeResponse.UpTime);
+        }
+
+        public void HandleHelp(string newMessage)
+        {
+            var helpResponse = JsonConvert.DeserializeObject<HelpResponse>(newMessage);
+            CommunicationMessages.ShowHelp(helpResponse.Message, helpResponse.Commands);
+        }
+
+        public void HandleMessage(string newMessage)
+        {
+            var messageResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(messageResponse.Command);
+
+            string userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            messageResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(messageResponse.Command);
+
+            userInput = GetUserInput();
+            _communicationService.SendResponse(CreateRequest(userInput));
+
+            messageResponse = ReceiveAndDeserialize<Request>();
+            CommunicationMessages.ShowLine(messageResponse.Command);
+        }
+
+        public void HandleMailbox(string newMessage)
+        {
+            var mailboxResponse = JsonConvert.DeserializeObject<MailsResponse>(newMessage);
+            CommunicationMessages.ShowMailbox(mailboxResponse.Message, mailboxResponse.Mails);
+        }
+
+        public void HandleUsers(string newMessage)
+        {
+            var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
+            CommunicationMessages.ShowUsers(usersResponse.Message, usersResponse.Users);
+        }
+
+        public void HandleDefault(string newMessage)
+        {
+            var wrongResponse = JsonConvert.DeserializeObject<Request>(newMessage);
+            CommunicationMessages.ShowLine(wrongResponse.Command);
+        }
+    }
+}
+
+
+
+====================
+FILE: Client\Program.cs
+
+using Client.Handlers;
 using Newtonsoft.Json;
 using Shared.Interfaces;
 using Shared.Requests;
@@ -18,11 +170,34 @@ namespace Client
 {
     public class Client
     {
-        private static bool exchangeOn = true;
+        private static bool _exchangeOn = true;
         private readonly ICommunicationService _communicationService;
+
+        public delegate void ResponseHandlerDelegate(string newMessage);
+        private readonly Dictionary<string, ResponseHandlerDelegate> _responseHandlers;
+        private readonly ResponseHandler _responseHandler;
+
         public Client(ICommunicationService communicationService)
         {
             _communicationService = communicationService;
+
+            _responseHandler = new ResponseHandler(communicationService);
+
+            _responseHandlers = new Dictionary<string, ResponseHandlerDelegate>
+            {
+                {"info", _responseHandler.HandleInfo },
+                {"register", _responseHandler.HandleRegister },
+                {"login", _responseHandler.HandleLogin },
+                {"logout", _responseHandler.HandleLogout },
+                { "delete", _responseHandler.HandleDelete },
+                { "uptime", _responseHandler.HandleUptime },
+                { "help", _responseHandler.HandleHelp },
+                { "message", _responseHandler.HandleMessage },
+                { "mailbox", _responseHandler.HandleMailbox },
+                { "users", _responseHandler.HandleUsers },
+                { "stop", (msg) => _exchangeOn = false }, 
+                { "default", _responseHandler.HandleDefault }
+            };
         }
         public void Start()
         {
@@ -32,7 +207,7 @@ namespace Client
                 var request1 = JsonConvert.DeserializeObject<string>(data);
 
                 Console.WriteLine("New message from Server: \n\n{0}", request1);
-                while (exchangeOn)
+                while (_exchangeOn)
                 {
                     Console.Write("\nEnter a new command: ");
                     string command = Console.ReadLine()!;
@@ -41,7 +216,7 @@ namespace Client
                         Console.Clear();
                         _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = command }));
                         string newMessage = _communicationService.ReceiveRequest();
-                        HandleResponse(newMessage, command, _communicationService);
+                        HandleResponse(newMessage, command);
                     }
                     else
                     {
@@ -55,162 +230,26 @@ namespace Client
                 Console.WriteLine("Can't establish connection to the server: " + ex.ToString());
             }
         }
-        static void HandleResponse(string newMessage, string command, ICommunicationService communicationService)
+
+        
+
+        public void HandleResponse(string newMessage, string command)
         {
-            switch (command)
+            if(_responseHandlers.TryGetValue(command, out ResponseHandlerDelegate handler))
             {
-                case "info":
-                    var infoResponse = JsonConvert.DeserializeObject<InfoResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                 " + infoResponse.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    Console.WriteLine($"Server's creation date&time: {infoResponse.ServerCreated}");
-                    Console.WriteLine($"Server's version: {infoResponse.ServerVersion}");
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    break;
-                case "register":
-                    var loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(loginResponse.Command);
-                    string userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    string messageReceived = communicationService.ReceiveRequest();
-                    var passwordResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(passwordResponse.Command);
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    messageReceived = communicationService.ReceiveRequest();
-                    var userCreated = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(userCreated.Command);
-                    break;
-                case "login":
-                    loginResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(loginResponse.Command);
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    messageReceived = communicationService.ReceiveRequest();
-                    passwordResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(passwordResponse.Command);
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    messageReceived = communicationService.ReceiveRequest();
-                    var loginStatus = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(loginStatus.Command);
-                    break;
-                case "logout":
-                    var logoutResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("             " + logoutResponse.Command);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    break;
-                case "delete":
-                    //fetching data from server
-                    var deleteResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(deleteResponse.Command);
-                    // user's input data and send to server
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-                    // accept/reject response from server
-                    messageReceived = communicationService.ReceiveRequest();
-                    deleteResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.Clear();
-                    Console.WriteLine(deleteResponse.Command);
-                    break;
-                case "uptime":
-                    var uptimeResponse = JsonConvert.DeserializeObject<UptimeResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("              " + uptimeResponse.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    Console.WriteLine($"                        {uptimeResponse.UpTime}");
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    break;
-                case "help":
-                    var helpResponse = JsonConvert.DeserializeObject<HelpResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                  " + helpResponse?.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    foreach (var availableCommand in helpResponse?.Commands)
-                    {
-                        Console.WriteLine($"          {availableCommand}");
-                    }
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    break;
-                case "message":
-                    // request to provide the recipient
-                    var messageResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(messageResponse.Command);
-
-                    // sending the recipient
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-
-                    // prosba o podanie wiadomosci
-                    messageReceived = communicationService.ReceiveRequest();
-                    messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.WriteLine(messageResponse.Command);
-
-                    // request for a message
-                    userInput = Console.ReadLine()!;
-                    communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = userInput }));
-
-                    // information about the message status
-                    messageReceived = communicationService.ReceiveRequest();
-                    messageResponse = JsonConvert.DeserializeObject<Request>(messageReceived);
-                    Console.WriteLine(messageResponse.Command);
-                    break;
-                case "mailbox":
-                    // messages receive
-                    var mailboxResponse = JsonConvert.DeserializeObject<MailsResponse>(newMessage);
-                    Console.WriteLine(mailboxResponse.Message);
-                    if (mailboxResponse.Mails.Count > 0)
-                    {
-                        foreach (var message in mailboxResponse.Mails)
-                        {
-                            Console.WriteLine(message);
-                        }
-                    }
-                    else
-                        Console.WriteLine("Your mailbox is empty.");
-                    break;
-                case "stop":
-                    exchangeOn = false;
-                    break;
-                case "users":
-                    var usersResponse = JsonConvert.DeserializeObject<UsersResponse>(newMessage);
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    Console.WriteLine("                  " + usersResponse?.Message);
-                    Console.WriteLine("\n######################################################\n");
-                    foreach (var user in usersResponse?.Users)
-                    {
-                        Console.WriteLine($"{user} ");
-                    }
-                    Console.WriteLine("\n######################################################");
-                    Console.WriteLine("######################################################\n");
-                    break;
-                default:
-                    var wrongResponse = JsonConvert.DeserializeObject<Request>(newMessage);
-                    Console.WriteLine(wrongResponse.Command);
-                    break;
+                handler(newMessage);
+            }
+            else
+            {
+                _responseHandler.HandleDefault(newMessage);
             }
         }
     }
 }
 
 
+
 ====================
-NAMESPACE: Client
 FILE: ConnectionInfoPresenter.cs
 
 using System;
@@ -234,11 +273,12 @@ namespace Client
     }
 }
 
+
 ====================
-NAMESPACE: Client
 FILE: Program.cs
 
 using Shared.Classes;
+using Shared.Classes.Services;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -266,223 +306,53 @@ namespace Client
 }
 
 ====================
-NAMESPACE: Server
-FILE: Program.cs
+FILE: CommandHandler.cs
 
+using Newtonsoft.Json;
 using Shared.Classes;
 using Shared.Interfaces;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
-namespace Server
-{
-    public class Program
-    {
-        static void Main(string[] args)
-        {
-            var serverSocket = new Socket(Config.IpAddr.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            serverSocket.Bind(Config.LocalEndPoint);
-            serverSocket.Listen(1);
-            while (true)
-            {
-                Console.WriteLine("Server is waiting for connection on localhost:9013...");
-                var clientSocket = serverSocket.Accept();
-                Console.WriteLine("Client connected.");
-                var communicationService = new SocketCommunicationService(clientSocket);
-                var usersPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
-                var messagesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/messages.json");
-
-
-                IUserManagementService userManagementService = new UserManagementService(usersPath);
-                IMessageService messageService = new MessageService(userManagementService, messagesPath);
-
-                Server server = new Server(communicationService, userManagementService, messageService);
-                server.Start();
-            }
-        }
-    }
-}
-
-====================
-NAMESPACE: Server
-FILE: Server.cs
-
-using Shared.Classes;
+using Shared.Requests;
+using Shared.Responses;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Shared.Requests;
-using Shared.Responses;
-using Shared.Classes.Shared.Classes;
-using Shared.Interfaces;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
-
-namespace Server
+namespace Server.ServerHandlers
 {
-    public class Server
+    public class CommandHandler
     {
         private readonly ICommunicationService _communicationService;
         private readonly IUserManagementService _userManagementService;
         private readonly IMessageService _messageService;
-        private static DateTime ServerCreationDate { get; set; }
-        private static bool communicationOn = true;
-        private static bool dataExchange = true;
-        private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
-                                            "help - list of available commands\ninfo - server's version&creation date\n" +
-                                            "register - register a new user\n" + "login - user login\n" +
-                                            "stop - stops server and the client\n";
-        public Server(ICommunicationService communicationService, IUserManagementService userManagementService, IMessageService messageService)
+        private bool _communicationOn;
+        private bool _dataExchange;
+        private DateTime _serverCreationDate;
+
+        public CommandHandler(ICommunicationService communicationService, IUserManagementService userManagementService, IMessageService messageService,DateTime ServerCreationDate, bool communicationOn, bool dataExchange)
         {
             _communicationService = communicationService;
             _userManagementService = userManagementService;
             _messageService = messageService;
-            ServerCreationDate = DateTime.Now;
+            _serverCreationDate = ServerCreationDate;
+            _communicationOn = communicationOn;
+            _dataExchange = dataExchange;
+
         }
-        public void Start()
-        {
-            try
-            {
-                while (communicationOn)
-                {
-                    _communicationService.SendResponse(JsonConvert.SerializeObject(helpMessage));
-                    while (dataExchange)
-                    {
-                        string data = _communicationService.ReceiveRequest();
-                        var request = JsonConvert.DeserializeObject<Request>(data);
-                        switch (request.Command.ToLower())
-                        {
-                            case "help":
-                                {
-                                    HelpCommand();
-                                    break;
-                                }
-                            case "info":
-                                {
-                                    InfoCommand();
-                                    break;
-                                }
-                            case "uptime":
-                                {
-                                    UpTimeCommand();
-                                    break;
-                                }
-                            case "stop":
-                                {
-                                    StopCommand();
-                                    break;
-                                }
-                            case "register":
-                                {
-                                    RegisterCommand();
-                                    break;
-                                }
-                            case "login":
-                                {
-                                    LoginCommand();
-                                    break;
-                                }
-                            case "logout":
-                                {
-                                    LogoutCommand();
-                                    break;
-                                }
-                            case "users":
-                                {
-                                    UsersCommand();
-                                    break;
-                                }
-                            case "delete":
-                                {
-                                    DeleteCommand();
-                                    break;
-                                }
-                            case "message":
-                                {
-                                    SendMessageCommand();
-                                    break;
-                                }
-                            case "mailbox":
-                                {
-                                    GetMessageCommand();
-                                    break;
-                                }
-                            default:
-                                {
-                                    WrongCommand();
-                                    break;
-                                }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.StackTrace);
-            }
-        }
-        private void UpTimeCommand()
-        {
-            var upTime = new UptimeResponse
-            {
-                Message = "Server's uptime [hh:mm:ss]",
-                UpTime = (DateTime.Now.TimeOfDay - ServerCreationDate.TimeOfDay).ToString(@"hh\:mm\:ss")
-            };
-            _communicationService.SendResponse(JsonConvert.SerializeObject(upTime));
-        }
-        private void StopCommand()
-        {
-            try
-            {
-                var stop = new Request
-                {
-                    Command = "stop"
-                };
-                _communicationService.SendResponse(JsonConvert.SerializeObject(stop));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            finally
-            {
-                communicationOn = false;
-                dataExchange = false;
-            }
-        }
-        private void InfoCommand()
-        {
-            var infoResponse = new InfoResponse
-            {
-                Message = "Server's informations",
-                ServerCreated = ServerCreationDate,
-                ServerVersion = Config.ServerVersion,
-            };
-            _communicationService.SendResponse(JsonConvert.SerializeObject(infoResponse));
-        }
-        private void HelpCommand()
+        public void HelpCommand()
         {
             var helpMessage = new HelpResponse
             {
                 Message = "Available commands:",
                 Commands = new List<string>
-                {
-                    "help - list of available commands",
-                    "info - server's version&creation date",
-                    "uptime - server's lifetime",
-                    "register - register a new user",
-                    "stop - stops server and the client"
-                }
+            {
+                "help - list of available commands",
+                "info - server's version&creation date",
+                "uptime - server's lifetime",
+                "register - register a new user",
+                "stop - stops server and the client"
+            }
             };
 
             if (_userManagementService.GetUser() != null)
@@ -490,18 +360,31 @@ namespace Server
                 helpMessage.Commands.Add("logout - user logout");
                 helpMessage.Commands.Add("message - send a message");
                 helpMessage.Commands.Add("mailbox - check your mailbox");
-                helpMessage.Commands.Add("message - send a message");
             }
             else
+            {
                 helpMessage.Commands.Add("login - login an user");
+            }
+
             if (_userManagementService.IsAdmin())
             {
                 helpMessage.Commands.Add("users - list of registered users");
                 helpMessage.Commands.Add("delete - delete an user");
             }
+
             _communicationService.SendResponse(JsonConvert.SerializeObject(helpMessage));
         }
-        private void RegisterCommand()
+        public void InfoCommand()
+        {
+            var infoResponse = new InfoResponse
+            {
+                Message = "Server's informations",
+                ServerCreated = _serverCreationDate,
+                ServerVersion = Config.ServerVersion,
+            };
+            _communicationService.SendResponse(JsonConvert.SerializeObject(infoResponse));
+        }
+        public void RegisterCommand()
         {
             string loginRequest = "Please type your login:";
             string passwordRequest = "Please type your password:";
@@ -520,7 +403,7 @@ namespace Server
 
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = registrationResult }));
         }
-        private void UsersCommand()
+        public void UsersCommand()
         {
             if (!_userManagementService.IsAdmin())
             {
@@ -542,7 +425,7 @@ namespace Server
             _communicationService.SendResponse(JsonConvert.SerializeObject(userMessage));
 
         }
-        private void LoginCommand()
+        public void LoginCommand()
         {
             string loginRequest = "Please type your login:";
             string passwordRequest = "Please type your password:";
@@ -567,12 +450,12 @@ namespace Server
             else
                 _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Wrong credantials!" }));
         }
-        private void LogoutCommand()
+        public void LogoutCommand()
         {
             var response = _userManagementService.LogoutUser();
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = response }));
         }
-        private void DeleteCommand()
+        public void DeleteCommand()
         {
             var deleteRequest = new Request { Command = "Which user do you want to delete? " };
             _communicationService.SendResponse(JsonConvert.SerializeObject(deleteRequest));
@@ -583,7 +466,7 @@ namespace Server
 
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = deleteResponse }));
         }
-        private void SendMessageCommand()
+        public void SendMessageCommand()
         {
             // request for indication of recipient
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Who do you want to send a message to?" }));
@@ -607,10 +490,10 @@ namespace Server
             // sending a reply
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = messageStatus }));
         }
-        private void GetMessageCommand()
+        public void GetMessageCommand()
         {
             // sending a reply
-            var mails = _messageService.GetMessages();
+            var mails = _messageService.GetUserMessages();
             var mailsResponse = new MailsResponse
             {
                 Message = "Mailbox: ",
@@ -618,15 +501,186 @@ namespace Server
             };
             _communicationService.SendResponse(JsonConvert.SerializeObject(mailsResponse));
         }
-        private void WrongCommand()
+        public void WrongCommand()
         {
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter a valid command! Type help for the command list." }));
+        }
+        public void UpTimeCommand()
+        {
+            var upTime = new UptimeResponse
+            {
+                Message = "Server's uptime [hh:mm:ss]",
+                UpTime = (DateTime.Now.TimeOfDay - _serverCreationDate.TimeOfDay).ToString(@"hh\:mm\:ss")
+            };
+            _communicationService.SendResponse(JsonConvert.SerializeObject(upTime));
+        }
+        public void StopCommand()
+        {
+            try
+            {
+                var stop = new Request
+                {
+                    Command = "stop"
+                };
+                _communicationService.SendResponse(JsonConvert.SerializeObject(stop));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                _communicationOn = false;
+                _dataExchange = false;
+            }
+        }
+    }
+}
+
+
+
+====================
+FILE: Program.cs
+
+using Shared.Classes;
+using Shared.Interfaces;
+using Shared.Classes.Services;
+using Shared.Classes.Repositories.FileType;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Shared.Classes;
+
+namespace Server
+{
+    public class Program
+    {
+        static void Main(string[] args)
+        {
+            var serverSocket = new Socket(Config.IpAddr.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            serverSocket.Bind(Config.LocalEndPoint);
+            serverSocket.Listen(1);
+            while (true)
+            {
+                Console.WriteLine("Server is waiting for connection on localhost:9013...");
+                var clientSocket = serverSocket.Accept();
+                Console.WriteLine("Client connected.");
+                var communicationService = new SocketCommunicationService(clientSocket);
+                var usersPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/users.json");
+                var messagesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserFiles/messages.json");
+                var userRepositoryFile = new UserFileRepository(usersPath);
+                var messageRepositoryFile = new MessageFileRepository(messagesPath);
+
+
+                IUserManagementService userManagementService = new UserManagementService(userRepositoryFile);
+
+                IMessageService messageService = new MessageService(userManagementService, messageRepositoryFile);
+
+                Server server = new Server(communicationService, userManagementService, messageService);
+                server.Start();
+            }
+        }
+    }
+}
+
+
+====================
+FILE: Server.cs
+
+using Shared.Classes;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Shared.Requests;
+using Shared.Responses;
+using Shared.Classes.Shared.Classes;
+using Shared.Interfaces;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using Server.ServerHandlers;
+
+
+namespace Server
+{
+    public class Server
+    {
+        private readonly ICommunicationService _communicationService;
+        private readonly IUserManagementService _userManagementService;
+        private readonly IMessageService _messageService;
+        private readonly CommandHandler _commandHandler;
+        private readonly Dictionary<string, Action> commandDictionary = new Dictionary<string, Action>();
+
+        private static DateTime ServerCreationDate { get; set; }
+        private static bool communicationOn = true;
+        private static bool dataExchange = true;
+        private static string helpMessage = "Choose one of the commands:\nuptime - server's lifetime\n" +
+                                            "help - list of available commands\ninfo - server's version&creation date\n" +
+                                            "register - register a new user\n" + "login - user login\n" +
+                                            "stop - stops server and the client\n";
+        public Server(ICommunicationService communicationService, IUserManagementService userManagementService, IMessageService messageService)
+        {
+            _communicationService = communicationService;
+            _userManagementService = userManagementService;
+            _messageService = messageService;
+            ServerCreationDate = DateTime.Now;
+            _commandHandler = new CommandHandler(communicationService, userManagementService, messageService, ServerCreationDate, communicationOn, dataExchange);
+            InitializeCommandDictionary();
+        }
+        public void Start()
+        {
+            try
+            {
+                while (communicationOn)
+                {
+                    _communicationService.SendResponse(JsonConvert.SerializeObject(helpMessage));
+                    while (dataExchange)
+                    {
+                        string data = _communicationService.ReceiveRequest();
+                        var request = JsonConvert.DeserializeObject<Request>(data);
+
+                        if (commandDictionary.ContainsKey(request.Command.ToLower()))
+                        {
+                            commandDictionary[request.Command.ToLower()].Invoke();
+                        }
+                        else
+                        {
+                            _commandHandler.WrongCommand();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
+        }
+
+        private void InitializeCommandDictionary()
+        {
+            commandDictionary["help"] = _commandHandler.HelpCommand;
+            commandDictionary["info"] = _commandHandler.InfoCommand;
+            commandDictionary["uptime"] = _commandHandler.UpTimeCommand;
+            commandDictionary["stop"] = _commandHandler.StopCommand;
+            commandDictionary["register"] = _commandHandler.RegisterCommand;
+            commandDictionary["login"] = _commandHandler.LoginCommand;
+            commandDictionary["logout"] = _commandHandler.LogoutCommand;
+            commandDictionary["users"] = _commandHandler.UsersCommand;
+            commandDictionary["delete"] = _commandHandler.DeleteCommand;
+            commandDictionary["message"] = _commandHandler.SendMessageCommand;
+            commandDictionary["mailbox"] = _commandHandler.GetMessageCommand;
         }
     }
 }
 
 ====================
-NAMESPACE: Shared.Classes
 FILE: AdminUser.cs
 
 using System;
@@ -661,7 +715,6 @@ namespace Shared.Classes
 }
 
 ====================
-NAMESPACE: Shared.Classes
 FILE: Config.cs
 
 using System;
@@ -678,13 +731,12 @@ namespace Shared.Classes
         public static IPAddress IpAddr { get; } = IPAddress.Parse("127.0.0.1");
         public static IPEndPoint LocalEndPoint { get; } = new(IpAddr, 9013);
 
-        public static string ServerVersion { get; } = "0.1.1";
+        public static string ServerVersion { get; } = "0.2.0";
     }
 }
 
 
 ====================
-NAMESPACE: Shared.Classes
 FILE: Constants.cs
 
 using System;
@@ -707,7 +759,6 @@ namespace Shared.Classes
 
 
 ====================
-NAMESPACE: Shared.Classes
 FILE: Message.cs
 
 using System;
@@ -740,136 +791,6 @@ namespace Shared.Classes
 
 
 ====================
-NAMESPACE: Shared.Classes
-FILE: MessageService.cs
-
-using Newtonsoft.Json;
-using Shared.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Shared.Classes
-{
-    public class MessageService : IMessageService
-    {
-        private Dictionary<string, List<Message>> usersMessages = new Dictionary<string, List<Message>>();
-        private IUserManagementService _userManagementService;
-        private string _messagesPath;
-        public MessageService(IUserManagementService userManagementService, string messagesPath)
-        {
-            _userManagementService = userManagementService;
-            _messagesPath = messagesPath;
-            usersMessages = LoadMessages();
-        }
-        public List<Message> GetMessages()
-        {
-            var currentUser = _userManagementService.GetUser();
-            List<Message> messages = new List<Message>();
-            if (!ValidateRecipient(currentUser.Login))
-                return messages;
-            if (usersMessages.ContainsKey(currentUser.Login))
-                messages = usersMessages[currentUser.Login];
-            return messages;
-        }
-        public string SendMessage(string recipient, string message)
-        {
-            LoadMessages();
-            var currentUser = _userManagementService.GetUser();
-            if (!ValidateRecipient(recipient))
-                return $"Sending failed. User {recipient} doesn't exist.";
-            if (!ValidateMessage(message))
-                return $"Sending failed. Message is too long.";
-            if (!CheckFullMailbox(recipient))
-                return $"Sending failed. Mailbox is full.";
-            Message singleUserMessages = new Message(currentUser.Login, message);
-            var userExistInMailbox = false;
-            foreach (var userMailbox in usersMessages)
-            {
-                if (userMailbox.Key == recipient)
-                {
-                    userMailbox.Value.Add(singleUserMessages);
-                    userExistInMailbox = true;
-                    break;
-                }
-            }
-            if (!userExistInMailbox)
-            {
-                var messages = new List<Message>();
-                messages.Add(singleUserMessages);
-                usersMessages.Add(recipient, messages);
-            }
-            SaveMessages(usersMessages);
-            return $"Message has been sent to {recipient}.";
-        }
-        private bool ValidateRecipient(string recipient)
-        {
-            var users = _userManagementService.GetAllUsers();
-            foreach (var user in users)
-            {
-                if (user.Login == recipient)
-                    return true;
-            }
-            return false;
-        }
-        private bool ValidateMessage(string message)
-        {
-            if (message.Length > 255)
-            {
-                return false;
-            }
-            return true;
-        }
-        private Dictionary<string, List<Message>> LoadMessages()
-        {
-            if (!File.Exists(_messagesPath))
-            {
-                return new Dictionary<string, List<Message>>();
-            }
-            using (var reader = new StreamReader(_messagesPath))
-            {
-                var json = reader.ReadToEnd();
-
-                var settings = new JsonSerializerSettings
-                {
-                    Converters = new List<JsonConverter> { new UserConverter() }
-                };
-
-                return JsonConvert.DeserializeObject<Dictionary<string, List<Message>>>(json, settings) ?? new Dictionary<string, List<Message>>();
-            }
-        }
-        private void SaveMessages(Dictionary<string, List<Message>> usersMessages)
-        {
-            try
-            {
-                using (var writer = new StreamWriter(_messagesPath))
-                {
-                    var json = JsonConvert.SerializeObject(usersMessages, Formatting.Indented);
-                    writer.Write(json);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-        }
-        private bool CheckFullMailbox(string name)
-        {
-            if (usersMessages.ContainsKey(name))
-            {
-                if (usersMessages[name].Count >= 5)
-                    return false;
-            }
-            return true;
-        }
-    }
-}
-
-
-====================
-NAMESPACE: Shared.Classes
 FILE: RegularUser.cs
 
 using System;
@@ -893,44 +814,7 @@ namespace Shared.Classes
     }
 }
 
-
 ====================
-NAMESPACE: Shared.Classes
-FILE: SocketCommunicationService.cs
-
-using Shared.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Net.Sockets;
-
-namespace Shared.Classes
-{
-    public class SocketCommunicationService : ICommunicationService
-    {
-        private Socket _clientSocket;
-        public SocketCommunicationService(Socket socket)
-        {
-            _clientSocket = socket;
-        }
-        public string ReceiveRequest()
-        {
-            byte[] buffer = new byte[1024];
-            int numBytes = _clientSocket.Receive(buffer);
-            return Encoding.ASCII.GetString(buffer, 0, numBytes);
-        }
-        public void SendResponse(string response)
-        {
-            _clientSocket.Send(Encoding.ASCII.GetBytes(response));
-        }
-    }
-}
-
-
-====================
-NAMESPACE: Shared.Classes
 FILE: User.cs
 
 using System;
@@ -956,7 +840,432 @@ namespace Shared.Classes
 }
 
 ====================
-NAMESPACE: Shared.Classes
+FILE: MessageValidator.cs
+
+using Shared.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Shared.Classes.Validators
+{
+    public class MessageValidator
+    {
+        private IUserManagementService _userManagementService;
+        public MessageValidator(IUserManagementService userManagementService, Dictionary<string, List<Message>> usersMessages)
+        {
+            _userManagementService = userManagementService;
+        }
+
+        public bool ValidateRecipient(string recipient)
+        {
+            var users = _userManagementService.GetAllUsers();
+            foreach (var user in users)
+            {
+                if (user.Login == recipient)
+                    return true;
+            }
+            return false;
+        }
+        public bool ValidateMessage(string message)
+        {
+            if (message.Length > 255)
+            {
+                return false;
+            }
+            return true;
+        }
+        public bool CheckFullMailbox(Dictionary<string, List<Message>> usersMessages, string name)
+        {
+            if (usersMessages.ContainsKey(name))
+            {
+                if (usersMessages[name].Count >= 5)
+                    return false;
+            }
+            return true;
+        }
+
+    }
+}
+
+
+
+
+====================
+FILE: UserManagementService.cs
+
+using Newtonsoft.Json;
+using Shared.Classes.Shared.Classes;
+using Shared.Interfaces;
+using Shared.Interfaces.Repository;
+using Shared.Requests;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+
+namespace Shared.Classes.Services
+{
+    public class UserManagementService : IUserManagementService
+    {
+        private readonly IUserRepository _userRepository;
+        public bool UserIsAdmin { get; private set; }
+        public User CurrentUser { get; private set; }
+        public UserManagementService(IUserRepository userRepository)
+        {
+            _userRepository = userRepository;
+            var x = RegisterAdmin("admin", "admin123");
+        }
+        public string DeleteUser(string login)
+        {
+            var user = _userRepository.GetUser(login);
+            if (user == null)
+            {
+                return "Deleting user failed";
+            }
+            _userRepository.DeleteUser(login);
+            return $"User {login} has been deleted.";
+        }
+        public List<User> GetAllUsers()
+        {
+            return _userRepository.GetAllUsers();
+        }
+        public User? LoginUser(string login, string password)
+        {
+            var user = _userRepository.GetUser(login);
+
+            if (user != null && user.Login == login && user.Password == password)
+            {
+                CurrentUser = user;
+                UserIsAdmin = CurrentUser.Type == Constants.UserTypes.Admin;
+                return CurrentUser;
+            }
+            return null;
+        }
+        public string LogoutUser()
+        {
+            var response = "No user is currently logged in";
+            if (CurrentUser != null)
+            {
+                response = $"User - {CurrentUser.Login} logout successful";
+                CurrentUser = null;
+            }
+            UserIsAdmin = UserIsAdmin ? false : UserIsAdmin;
+            return response;
+        }
+        public string RegisterUser(string login, string password)
+        {
+            var user = _userRepository.GetUser(login);
+            if (user != null)
+            {
+                return "User already exists";
+            }
+            user = new RegularUser(login, password);
+            _userRepository.AddUser(user);
+            return $"User: {login} has been created.";
+        }
+        public string RegisterAdmin(string login, string password)
+        {
+            var user = _userRepository.GetUser(login);
+            if (user != null)
+            {
+                return "User already exists";
+            }
+            user = new AdminUser(login, password);
+            _userRepository.AddUser(user);
+            return $"Admin: {login} has been created.";
+        }
+        public User? GetUser()
+        {
+            return CurrentUser;
+        }
+        public bool IsAdmin()
+        {
+            return UserIsAdmin;
+        }
+    }
+}
+
+====================
+FILE: SocketCommunicationService.cs
+
+using Shared.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Net.Sockets;
+
+namespace Shared.Classes.Services
+{
+    public class SocketCommunicationService : ICommunicationService
+    {
+        private Socket _clientSocket;
+        public SocketCommunicationService(Socket socket)
+        {
+            _clientSocket = socket;
+        }
+        public string ReceiveRequest()
+        {
+            byte[] buffer = new byte[1024];
+            int numBytes = _clientSocket.Receive(buffer);
+            return Encoding.ASCII.GetString(buffer, 0, numBytes);
+        }
+        public void SendResponse(string response)
+        {
+            _clientSocket.Send(Encoding.ASCII.GetBytes(response));
+        }
+    }
+}
+
+
+====================
+FILE: MessageService.cs
+
+using Newtonsoft.Json;
+using Shared.Classes.Validators;
+using Shared.Classes.Converters;
+using Shared.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Shared.Interfaces.Repository;
+
+namespace Shared.Classes.Services
+{
+    public class MessageService : IMessageService
+    {
+        private Dictionary<string, List<Message>> usersMessages = new Dictionary<string, List<Message>>();
+        private IUserManagementService _userManagementService;
+        private IMessageRepository _messageRepository;
+        private MessageValidator _messageValidator;
+        public MessageService(IUserManagementService userManagementService, IMessageRepository messageRepository)
+        {
+            _userManagementService = userManagementService;
+            _messageRepository = messageRepository;
+            usersMessages = _messageRepository.GetAllMesasges();
+            _messageValidator = new MessageValidator(_userManagementService, usersMessages);
+        }
+        public List<Message> GetUserMessages()
+        {
+            var currentUser = _userManagementService.GetUser();
+            List<Message> messages = new List<Message>();
+            if (!_messageValidator.ValidateRecipient(currentUser.Login))
+                return messages;
+            if (usersMessages.ContainsKey(currentUser.Login))
+                messages = usersMessages[currentUser.Login];
+            return messages;
+        }
+        public string SendMessage(string recipient, string message)
+        {
+            var currentUser = _userManagementService.GetUser();
+
+            if (!_messageValidator.ValidateRecipient(recipient))
+                return $"Sending failed. User {recipient} doesn't exist.";
+            if (!_messageValidator.ValidateMessage(message))
+                return $"Sending failed. Message is too long.";
+            if (!_messageValidator.CheckFullMailbox(usersMessages, recipient))
+                return $"Sending failed. Mailbox is full.";
+            Message singleUserMessage = new Message(currentUser.Login, message);
+            var userExistInMailbox = false;
+
+            if (usersMessages.ContainsKey(recipient))
+            {
+                usersMessages[recipient].Add(singleUserMessage);
+                userExistInMailbox = true;
+            }
+            if (!userExistInMailbox)
+            {
+                usersMessages.Add(recipient, new List<Message> { singleUserMessage });
+            }
+
+            _messageRepository.SaveMessages(usersMessages);
+            return $"Message has been sent to {recipient}.";
+        }
+    }
+}
+
+
+====================
+FILE: UserFileRepository.cs
+
+using Newtonsoft.Json;
+using Shared.Interfaces.Repository;
+using Shared.Classes.Converters;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.IO;
+
+namespace Shared.Classes.Repositories.FileType
+{
+    public class UserFileRepository : IUserRepository
+    {
+        private readonly string _usersPath;
+
+        public UserFileRepository(string usersPath)
+        {
+            _usersPath = usersPath;
+        }
+
+        public void AddUser(User user)
+        {
+            var users = LoadUsers();
+            if (users.All(u => u.Login != user.Login))
+            {
+                users.Add(user);
+            }
+            SaveUsers(users);
+        }
+
+        public void DeleteUser(string login)
+        {
+            var users = LoadUsers();
+            var userToRemove = users.Find(u => u.Login == login);
+            if (userToRemove != null)
+            {
+                users.Remove(userToRemove);
+                SaveUsers(users);
+            }
+        }
+
+        public List<User> GetAllUsers()
+        {
+            return LoadUsers();
+        }
+
+        public User? GetUser(string login)
+        {
+            var users = LoadUsers();
+            return users.Find(u => u.Login == login);
+        }
+
+        public void UpdateUser(User user)
+        {
+            var users = LoadUsers();
+            var existingUser = users.Find(u => u.Login == user.Login);
+            if (existingUser != null)
+            {
+                users.Remove(existingUser);
+                users.Add(user);
+                SaveUsers(users);
+            }
+        }
+
+
+
+        // helpers methods
+
+        private List<User> LoadUsers()
+        {
+            if (!File.Exists(_usersPath))
+            {
+                return new List<User>();
+            }
+            using (var reader = new StreamReader(_usersPath))
+            {
+
+
+                var json = reader.ReadToEnd();
+
+                var settings = new JsonSerializerSettings
+                {
+                    Converters = new List<JsonConverter> { new UserConverter() }
+                };
+                return JsonConvert.DeserializeObject<List<User>>(json, settings) ?? new List<User>();
+            }
+        }
+
+        private void SaveUsers(List<User> users)
+        {
+            try
+            {
+                using (var writer = new StreamWriter(_usersPath))
+                {
+                    var json = JsonConvert.SerializeObject(users, Formatting.Indented);
+                    writer.Write(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving users to file: {ex.Message}");
+            }
+        }
+
+    }
+}
+
+
+====================
+FILE: MessageFileRepository.cs
+
+using System.IO;
+using Newtonsoft.Json;
+using Shared.Classes.Converters;
+using Shared.Interfaces.Repository;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Shared.Classes.Repositories.FileType
+{
+    public class MessageFileRepository : IMessageRepository
+    {
+        private readonly string _messagesPath;
+        public MessageFileRepository(string messagesPath)
+        {
+            _messagesPath = messagesPath;
+        }
+        public Dictionary<string, List<Message>> GetAllMesasges()
+        {
+            if (!File.Exists(_messagesPath))
+            {
+                return new Dictionary<string, List<Message>>();
+            }
+            using (var reader = new StreamReader(_messagesPath))
+            {
+                var json = reader.ReadToEnd();
+
+                var settings = new JsonSerializerSettings
+                {
+                    Converters = new List<JsonConverter> { new UserConverter() }
+                };
+
+                return JsonConvert.DeserializeObject<Dictionary<string, List<Message>>>(json, settings) ?? new Dictionary<string, List<Message>>();
+            }
+        }
+        public void SaveMessages(Dictionary<string, List<Message>> messages)
+        {
+            try
+            {
+                using (var writer = new StreamWriter(_messagesPath))
+                {
+                    var json = JsonConvert.SerializeObject(messages, Formatting.Indented);
+                    writer.Write(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+        }
+
+    }
+}
+
+
+====================
 FILE: UserConverter.cs
 
 using Microsoft.VisualBasic;
@@ -971,7 +1280,7 @@ using Newtonsoft.Json.Linq;
 using Shared.Classes.Shared.Classes;
 
 
-namespace Shared.Classes
+namespace Shared.Classes.Converters
 {
     public abstract class JsonCreationConverter<T> : JsonConverter
     {
@@ -1010,7 +1319,7 @@ namespace Shared.Classes
         {
             try
             {
-                Constants.UserTypes userType = ((Constants.UserTypes)jObject["Type"].Value<int>());
+                Constants.UserTypes userType = (Constants.UserTypes)jObject["Type"].Value<int>();
                 string login = jObject["Login"].Value<string>();
                 string password = jObject["Password"].Value<string>();
                 switch (userType)
@@ -1032,139 +1341,51 @@ namespace Shared.Classes
 }
 
 
-====================
-NAMESPACE: Shared.Classes
-FILE: UserManagementService.cs
 
-using Newtonsoft.Json;
-using Shared.Classes.Shared.Classes;
-using Shared.Interfaces;
-using Shared.Requests;
+====================
+FILE: IMessageRepository.cs
+
+using Shared.Classes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Shared.Classes
+namespace Shared.Interfaces.Repository
 {
-    public class UserManagementService : IUserManagementService
+    public interface IMessageRepository
     {
-        private List<User> users = new List<User>();
-        private readonly string _usersPath;
-        public bool UserIsAdmin { get; private set; }
-        public User CurrentUser { get; private set; }
-        public UserManagementService(string filePath)
-        {
-            _usersPath = filePath;
-            users = LoadUsers();
-            var x = RegisterAdmin("admin", "admin123");
-        }
-        public string DeleteUser(string login)
-        {
-            var user = LoadUsers();
-            var userToRemove = users.FirstOrDefault(x => x.Login == login);
-            if (userToRemove == null)
-            {
-                return "Deleting user failed";
-            }
-            users.Remove(userToRemove);
-            SaveUsers(users);
-            return $"User {login} has been deleted.";
-        }
-        public List<User> GetAllUsers()
-        {
-            return users;
-        }
-        public User? LoginUser(string login, string password)
-        {
-            var user = users.Find(u => u.Login == login && u.Password == password);
-
-            if (user != null)
-            {
-                CurrentUser = user;
-                UserIsAdmin = CurrentUser.Type == Constants.UserTypes.Admin;
-                return CurrentUser;
-            }
-            return null;
-        }
-        public string LogoutUser()
-        {
-            var response = "No user is currently logged in";
-            if (CurrentUser != null)
-            {
-                response = $"User - {CurrentUser.Login} logout successful";
-                CurrentUser = null;
-            }
-            UserIsAdmin = UserIsAdmin ? false : UserIsAdmin;
-            return response;
-        }
-        public string RegisterUser(string login, string password)
-        {
-            if (users.Any(u => u.Login == login))
-            {
-                return "User already exists";
-            }
-            var user = new RegularUser(login, password);
-            users.Add(user);
-            SaveUsers(users);
-            return $"User: {login} created.";
-        }
-        public string RegisterAdmin(string login, string password)
-        {
-            if (users.Any(u => u.Login == login))
-            {
-                return "User already exists";
-            }
-            var user = new AdminUser(login, password);
-            users.Add(user);
-            SaveUsers(users);
-            return $"Admin: {login} created.";
-        }
-        private List<User> LoadUsers()
-        {
-            if (!File.Exists(_usersPath))
-            {
-                return new List<User>();
-            }
-            using (var reader = new StreamReader(_usersPath))
-            {
-                var json = reader.ReadToEnd();
-                var settings = new JsonSerializerSettings
-                {
-                    Converters = new List<JsonConverter> { new UserConverter() }
-                };
-                return JsonConvert.DeserializeObject<List<User>>(json, settings) ?? new List<User>();
-            }
-        }
-        private void SaveUsers(List<User> users)
-        {
-            try
-            {
-                using (var writer = new StreamWriter(_usersPath))
-                {
-                    var json = JsonConvert.SerializeObject(users, Formatting.Indented);
-                    writer.Write(json);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-        }
-        public User? GetUser()
-        {
-            return CurrentUser;
-        }
-        public bool IsAdmin()
-        {
-            return UserIsAdmin;
-        }
+        Dictionary<string, List<Message>> GetAllMesasges();
+        void SaveMessages(Dictionary<string, List<Message>> messages);
     }
 }
 
+
 ====================
-NAMESPACE: Shared.Interfaces
+FILE: IUserRepository.cs
+
+using Shared.Classes;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Shared.Interfaces.Repository
+{
+    public interface IUserRepository
+    {
+        User? GetUser(string login);
+        List<User> GetAllUsers();
+        void AddUser(User user);
+        void UpdateUser(User user);
+        void DeleteUser(string login);
+    }
+}
+
+
+====================
 FILE: ICommunicationService.cs
 
 using System;
@@ -1184,7 +1405,6 @@ namespace Shared.Interfaces
 
 
 ====================
-NAMESPACE: Shared.Interfaces
 FILE: IMessageService.cs
 
 using Shared.Classes;
@@ -1208,12 +1428,15 @@ namespace Shared.Interfaces
         /// Check all messages for a specific user
         /// </summary>
         /// <param name="user">The user which messages should be checked.</param>
-        List<Message> GetMessages();
+        List<Message> GetUserMessages();
     }
 }
 
+
+
+
+
 ====================
-NAMESPACE: Shared.Interfaces
 FILE: IUserManagementService.cs
 
 using Shared.Classes;
@@ -1240,7 +1463,6 @@ namespace Shared.Interfaces
 
 
 ====================
-NAMESPACE: Shared.Requests
 FILE: Request.cs
 
 using System;
@@ -1257,8 +1479,8 @@ namespace Shared.Requests
     }
 }
 
+
 ====================
-NAMESPACE: Shared.Responses
 FILE: HelpResponse.cs
 
 using System;
@@ -1276,8 +1498,9 @@ namespace Shared.Responses
     }
 }
 
+
+
 ====================
-NAMESPACE: Shared.Responses
 FILE: InfoResponse.cs
 
 using System;
@@ -1298,7 +1521,6 @@ namespace Shared.Responses
 
 
 ====================
-NAMESPACE: Shared.Responses
 FILE: MailsResponse.cs
 
 using Shared.Classes;
@@ -1317,8 +1539,8 @@ namespace Shared.Responses
     }
 }
 
+
 ====================
-NAMESPACE: Shared.Responses
 FILE: UptimeResponse.cs
 
 using System;
@@ -1336,8 +1558,8 @@ namespace Shared.Responses
     }
 }
 
+
 ====================
-NAMESPACE: Shared.Responses
 FILE: UsersResponse.cs
 
 using Shared.Classes;
@@ -1357,3 +1579,580 @@ namespace Shared.Responses
     }
 }
 
+
+
+====================
+FILE: MessageFileRepositoryTests.cs
+
+using Newtonsoft.Json;
+using Shared.Classes;
+using Shared.Classes.Repositories.FileType;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Tests
+{
+    public class MessageFileRepositoryTests
+    {
+        private const string TestFilePath = "testfile.json";
+
+        [Fact]
+        public void GetAllMessagesShouldReturnEmptyDictionaryWhenFileDoesNotExist()
+        {
+            // Arrange
+            var messagesPath = "nonexistentfile.json";
+            var repository = new MessageFileRepository(messagesPath);
+
+
+            // Act
+            var result = repository.GetAllMesasges();
+
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Empty(result);
+        }
+
+
+        [Fact]
+        public void GetAllMessagesShouldReturnParsedMessagesWhenFileExists()
+        {
+            // Arrange
+            var expectedMessages = new Dictionary<string, List<Message>>
+            {
+                { "userRecipient", new List<Message> { new Message("userSender", "Hello World") } }
+            };
+            var json = JsonConvert.SerializeObject(expectedMessages, Formatting.Indented);
+
+            File.WriteAllText(TestFilePath, json);
+
+            var repository = new MessageFileRepository(TestFilePath);
+
+            // Act
+            var result = repository.GetAllMesasges();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Contains("userRecipient", result.Keys);
+            var messages = result["userRecipient"];
+            Assert.Single(messages);
+            var message = messages.First();
+            Assert.Equal("userSender", message.Sender);
+            Assert.Equal("Hello World", message.Content);
+        }
+
+
+        [Fact]
+        public void SaveMessages_ShouldWriteToFile()
+        {
+            // Arrange
+            var repository = new MessageFileRepository(TestFilePath);
+            var messages = new Dictionary<string, List<Message>>
+            {
+                {"user1", new List<Message> {new Message("user2", "What's going on?")} }
+            };
+
+            // Act
+
+            repository.SaveMessages(messages);
+
+
+            // Assert
+            string fileContent;
+            using (var reader = new StreamReader(TestFilePath)) {
+                fileContent = reader.ReadToEnd();
+            }
+            if (File.Exists(TestFilePath))
+            {
+                File.Delete(TestFilePath);
+            }
+
+            var deserializedMessage = JsonConvert.DeserializeObject<Dictionary<string, List<Message>>> (fileContent);
+            //var fileContent = File.ReadAllText(TestFilePath);
+
+
+            Assert.NotNull(fileContent);
+            Assert.Contains("user1", deserializedMessage!.Keys);
+
+            var message = deserializedMessage!["user1"].First();
+
+            Assert.Equal("What's going on?", message.Content);
+
+        }
+    }
+}
+
+
+====================
+FILE: MessageTests.cs
+
+using Shared.Classes;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Tests
+{
+    public class MessageTests
+    {
+
+        [Fact]
+        public void ConstructorShouldInitializeProperties()
+        {
+
+            // Arrange
+            var sender = "TestSender";
+            var content = "TestContent";
+
+            // Act
+
+            var message = new Message(sender, content);
+
+
+            // Assert
+            Assert.Equal(sender, message.Sender);
+            Assert.Equal(content, message.Content);
+        }
+
+        [Fact]
+        public void ToStringShouldReturnFormattedString()
+        {
+            // Arrange
+            var sender = "user1";
+            var content = "Hi, how are you?";
+            var message = new Message(sender, content);
+            var expectedOutput = $"Sender: {sender}, Content: {content}, CreationDate&Time: {message.MessageCreationDateTime:yyyy-MM-dd HH:mm:ss}";
+
+            var result = message.ToString();
+
+            Assert.Equal(expectedOutput, result);
+
+        }
+
+    }
+}
+
+
+====================
+FILE: MessageValidatorTests.cs
+
+using Shared.Classes.Validators;
+using Shared.Interfaces;
+using Shared.Classes;
+using Shared.Classes.Services;
+using Shared.Interfaces.Repository;
+using Moq;
+using System.ComponentModel.DataAnnotations;
+using System.Xml.Linq;
+
+namespace Tests
+{
+    public class MessageValidatorTests
+    {
+
+        private readonly Mock<IUserManagementService> _mockUserManagementService;
+        private readonly MessageValidator _validator;
+
+        public MessageValidatorTests()
+        {
+            _mockUserManagementService = new Mock<IUserManagementService>();
+
+            // Przygotowanie mocka IUserManagementService do zwracania przykładowych użytkowników
+            _mockUserManagementService.Setup(service => service.GetAllUsers())
+                .Returns(new List<User>
+                {
+                    new RegularUser("user1", "password1"),
+                    new RegularUser ("user2", "password2")
+                });
+
+            _validator = new MessageValidator(_mockUserManagementService.Object, new Dictionary<string, List<Message>>());
+        }
+
+        [Theory]
+        [InlineData("user1")]
+        [InlineData("user2")]
+        public void ValidateRecipientValidRecipientReturnsTrue(string existingRecipient)
+        {
+            // Arrange
+            //string existingRecipient = "user1";
+
+            // Act
+            bool isValid = _validator.ValidateRecipient(existingRecipient);
+
+            // Assert
+            Assert.True(isValid);
+        }
+
+
+        [Fact]
+        public void ValidateRecipientInvalidRecipientReturnsFalse()
+        {
+            // Arrange
+            string existingRecipient = "unkown_user";
+
+            // Act
+            bool isValid = _validator.ValidateRecipient(existingRecipient);
+
+            // Assert
+            Assert.False(isValid);
+        }
+
+        [Fact]
+        public void ValidateMessageMessageValidReturnsTrue()
+        {
+            string newMessage = "test message";
+
+            bool isValid = _validator.ValidateMessage(newMessage);
+
+            Assert.True(isValid);
+
+        }
+
+        [Fact]
+        public void ValidateMessageMessageInvalidReturnsFalse()
+        {
+            string newMessage = "...................Salve amice! Spero te bene valere. Hodie mihi fortuna favet. Sol splendet," +
+                " et ventus lenis spirat. Vita pulchra est! Hoc tempore studeo, ut meliorem faciam. Gratias " +
+                "tibi ago pro amicitia tua. Vale!........................................";
+
+            bool isValid = _validator.ValidateMessage(newMessage);
+
+            Assert.False(isValid);
+
+        }
+
+
+        [Fact]
+        public void CheckMailboxFullMailboxFullReturnsTrue()
+        {
+            var usersMessages = new Dictionary<string, List<Message>>
+            {
+                { "user2", new List<Message>
+                    {
+                        new Message("sender1", "Message 1 content"),
+                        new Message("sender2", "Message 2 content"),
+                        new Message("sender3", "Message 3 content"),
+                        new Message("sender1", "Message 4 content"),
+                        new Message("sender2", "Message 5 content"),
+                        new Message("sender3", "Message 6 content")
+                    } 
+                }
+            };
+            string userName = "user2";
+
+
+            bool isNotFull = _validator.CheckFullMailbox(usersMessages, userName);
+            Assert.True(!isNotFull);
+        }
+
+        [Fact]
+        public void CheckMailboxFullMailboxNotFullReturnsTrue()
+        {
+            var usersMessages = new Dictionary<string, List<Message>>
+            {
+                { "user2", new List<Message>
+                    {
+                        new Message("sender1", "Message 1 content"),
+                    }
+                }
+            };
+            string userName = "user2";
+
+
+            bool isNotFull = _validator.CheckFullMailbox(usersMessages, userName);
+            Assert.True(isNotFull);
+        }
+
+
+    }
+}
+
+
+
+====================
+FILE: Response.cs
+
+using Client;
+using Client.Handlers;
+using Moq;
+using Newtonsoft.Json;
+using Shared.Interfaces;
+using Shared.Responses;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Tests
+{
+    public class ResponseHandlerTests
+    {
+        private readonly Mock<ICommunicationService> _mockCommunicationService;
+        private readonly ResponseHandler _responseHandler;
+
+        public ResponseHandlerTests()
+        {
+            _mockCommunicationService = new Mock<ICommunicationService>();
+            _responseHandler = new ResponseHandler(_mockCommunicationService.Object);
+        }
+
+        [Fact]
+        public void HandleInfoShouldCallShowInfoWithCorrectParameters()
+        {
+            // Arrange
+            var infoResponse = new InfoResponse
+            {
+                Message = "Server Info",
+                ServerCreated = DateTime.Now,
+                ServerVersion = "1.0.0"
+            };
+            var json = JsonConvert.SerializeObject(infoResponse);
+
+            // Act
+            _responseHandler.HandleInfo(json);
+
+            // Assert
+            CommunicationMessages.ShowInfo(infoResponse.Message, infoResponse.ServerCreated, infoResponse.ServerVersion);
+            // Note: You may need to use a mock or another way to verify calls to static methods.
+        }
+    }
+}
+
+
+
+
+====================
+FILE: UserFileRepositoryTests.cs
+
+using Newtonsoft.Json;
+using Shared.Classes;
+using Shared.Classes.Converters;
+using Shared.Classes.Repositories.FileType;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Tests
+{
+    public class UserFileRepositoryTests
+    {
+
+        private const string TestFilePath = "testuser.json";
+
+
+        [Fact]
+        public void GetAllUsersShouldReturnEmptyListWhenFileDoesNotExist()
+        {
+            // Arrange
+            var repository = new UserFileRepository(TestFilePath);
+
+            // Act
+            var result = repository.GetAllUsers();
+
+            // Assert
+            Assert.NotNull(result);
+        }
+
+        [Fact]
+
+        public void AddUserShouldaAddUserEventIfListIsEmpty()
+        {
+            // Arrange
+            var repository = new UserFileRepository(TestFilePath);
+            var newUser = new RegularUser("testUser", "testPassword");
+
+            // Act
+            repository.AddUser(newUser);
+
+            // Assert
+            var users = ReadUsersFromFile();
+            var userFound = users.Any(u => u.Login == newUser.Login && u.Password == newUser.Password);
+            Assert.True(userFound);
+        }
+
+        private List<User> ReadUsersFromFile()
+        {
+            if (!File.Exists(TestFilePath))
+                return new List<User>();
+
+            var json = File.ReadAllText(TestFilePath);
+            var settings = new JsonSerializerSettings
+            {
+                Converters = new List<JsonConverter> { new UserConverter() }
+            };
+            return JsonConvert.DeserializeObject<List<User>>(json, settings) ?? new List<User>();
+        }
+
+
+        [Fact]
+        public void DeleteUserShouldDeleteFromList()
+        {
+            // Arrange
+            var repository = new UserFileRepository(TestFilePath);
+            var newUser = new RegularUser("userToDelete", "passwordToDelete");
+            repository.AddUser(newUser);
+
+            // Act
+            repository.DeleteUser(newUser.Login);
+
+            // Assert
+            var users = ReadUsersFromFile();
+            var userDeleted = users.All(user =>  user.Login != newUser.Login);
+
+            Assert.True(userDeleted);
+
+        }
+
+    }
+}
+
+====================
+FILE: UserFileRepositoryTests.cs
+
+using Moq;
+using Shared.Classes;
+using Shared.Classes.Repositories.FileType;
+using Shared.Classes.Services;
+using Shared.Classes.Shared.Classes;
+using Shared.Interfaces;
+using Shared.Interfaces.Repository;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Tests
+{
+    public class UserManagementServiceTest
+    {
+        // temporary file path
+        private const string UsersFilePath = "test_users.json";
+
+        public UserManagementServiceTest()
+        {
+            if (File.Exists(UsersFilePath))
+            {
+                File.Delete(UsersFilePath);
+            }
+        }
+
+        [Fact]
+        public void RegisterUserWhenUserDoesNotExistShouldRegisterUser()
+        {
+            // Arrange
+            string login = "testuser";
+            string password = "testpassword";
+
+            IUserRepository userRepository = new UserFileRepository(UsersFilePath);
+            var userService = new UserManagementService(userRepository);
+
+            // Act
+            string result = userService.RegisterUser(login, password);
+
+            // Assert
+            Assert.Contains($"User: {login} has been created.", result);
+        }
+
+        [Fact]
+        public void RegisterUserWhenUserExistShouldReject()
+        {
+            // Arrange
+            string login = "admin";
+            string password = "admin123";
+
+            IUserRepository userRepository = new UserFileRepository(UsersFilePath);
+            var userService = new UserManagementService(userRepository);
+
+            // Act
+            string result = userService.RegisterUser(login, password);
+
+            // Assert
+            Assert.Contains("User already exists", result);
+        }
+
+        [Fact]
+        public void LoginUserWithValidCredentialsShouldLoginSuccessfully()
+        {
+            // Arrange
+            var login = "testuser";
+            var password = "testpassword";
+
+            var mockUserRepository = new Mock<IUserRepository>();
+
+            mockUserRepository.Setup(repo => repo.GetUser(login))
+                              .Returns(new RegularUser("testuser", "testpassword"));
+
+            var userService = new UserManagementService(mockUserRepository.Object);
+
+            // Act
+            var result = userService.LoginUser(login, password);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(login, result.Login);
+            Assert.Equal(password, result.Password);
+
+        }
+
+        [Fact]
+        public void LoginUserWithInvalidCredentialsShouldNotLoginSuccessfully()
+        {
+            // Arrange
+            var login = "testuser";
+            var password = "testpassword";
+
+            var mockUserRepository = new Mock<IUserRepository>();
+
+            mockUserRepository.Setup(repo => repo.GetUser(login))
+                              .Returns(new RegularUser("testuser", "testpassword1"));
+
+            var userService = new UserManagementService(mockUserRepository.Object);
+
+            // Act
+            var result = userService.LoginUser(login, password);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+
+        public void LoginAdminShouldReturnTypeAdmin()
+        {
+            // Arrange
+
+            var login = "admin";
+            var password = "admin123";
+
+            var mockUserRepository = new Mock<IUserRepository>();
+
+            mockUserRepository.Setup(repo => repo.GetUser(login))
+                              .Returns(new AdminUser("admin", "admin123"));
+
+            var userService = new UserManagementService(mockUserRepository.Object);
+
+
+            // Act
+            
+            var result = userService.LoginUser(login, password);
+
+            // Assert
+
+            Assert.Equal("Admin", result.Type.ToString());
+
+        }
+
+
+    }
+}

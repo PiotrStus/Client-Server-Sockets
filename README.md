@@ -37,7 +37,13 @@ Currently, the project has the following features:
 ## Tests
 
 Currently, there are 3 services implementing the IMessageService, IUserManagementService, ICommunicationService interfaces, which have been implemented in the main server class.
-Thanks to the appliance of the Dependency Inversion in the solution, code can be easily tested. 
+
+Thanks to the use of dependency inversion in my solution, the code is easy to test. 
+
+There are almost 21 tests (XUnit) , including all the main modules of the application.
+
+### Video
+[![XUnit](http://img.youtube.com/vi/BvUaVdY5Hec/0.jpg)](http://www.youtube.com/watch?v=BvUaVdY5Hec)
 
 
 ## Potential Extensions
