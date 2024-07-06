@@ -65,7 +65,7 @@ namespace Client
             {
                 foreach (var mail in mails)
                 {
-                    Console.WriteLine(mail.Content); // Assuming `Content` is the property containing the message text.
+                    Console.WriteLine(mail.Content);
                     Console.WriteLine(mail.MessageCreationDateTime);
                     Console.WriteLine("from " + mail.Sender);
                 }

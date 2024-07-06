@@ -165,24 +165,19 @@ namespace Server.ServerHandlers
             var data = _communicationService.ReceiveRequest();
             var messageRecipient = JsonConvert.DeserializeObject<Request>(data);
 
-            // prosba o podanie wiadomosci
-            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter your message" }));
-
             // request for a message
+            _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = "Please enter your message" }));
             data = _communicationService.ReceiveRequest();
             var message = JsonConvert.DeserializeObject<Request>(data);
 
-
             // message validation
             var messageStatus = _messageService.SendMessage(messageRecipient.Command, message.Command);
-            //_messageService.Test();
 
             // sending a reply
             _communicationService.SendResponse(JsonConvert.SerializeObject(new Request { Command = messageStatus }));
         }
         public void GetMessageCommand()
         {
-            // sending a reply
             var mails = _messageService.GetUserMessages();
             var mailsResponse = new MailsResponse
             {

@@ -40,7 +40,6 @@ namespace Tests
 
             // Assert
             CommunicationMessages.ShowInfo(infoResponse.Message, infoResponse.ServerCreated, infoResponse.ServerVersion);
-            // Note: You may need to use a mock or another way to verify calls to static methods.
         }
     }
 }
