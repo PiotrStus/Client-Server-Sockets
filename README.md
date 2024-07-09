@@ -51,5 +51,6 @@ There are almost 21 tests (XUnit) , including all the main modules of the applic
 Some potential functionalities to add to this project include:
 - Handling multiple clients concurrently through multi-threading or asynchronous I/O.
 - Implementing asynchronous reading/writing methods.
+- Database implementation instead of json files.
 - Adding event and error logging to a file for better debugging and application monitoring.
 - Implementing a graphical user interface (GUI) for the client and/or server to facilitate user interaction with the application.
